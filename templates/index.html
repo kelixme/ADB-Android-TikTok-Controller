@@ -146,6 +146,7 @@ body {
 
 .tab-content {
     display: none;
+    overflow-y: auto;
     flex-direction: column;
     padding: 10px;
     gap: 2px;
@@ -167,6 +168,10 @@ body {
     margin-bottom: 10px;
     color: var(--text-color);
     animation: fadeIn 0.4s ease-out;
+    font-family: 'Unbounded', 'Segoe UI emoji';
+    font-size: 10px;
+    color: #666666;
+    font-weight: 400;
 }
 
 .btn {
@@ -182,6 +187,7 @@ body {
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     overflow: hidden;
+    font-size: 10px;
 }
 
 .btn::before {
@@ -281,10 +287,31 @@ body {
     transition: all 0.3s ease;
 }
 
-*:focus {
+*,
+*:focus,
+*:focus-visible {
+    outline: none !important;
     outline-width: 0 !important;
+    box-shadow: none !important;
 }
 
+input, select, textarea, button {
+    outline: none !important;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+/* убрать жёлтый/зелёный автофилл-бэкграунд браузера */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+select:-webkit-autofill {
+    -webkit-box-shadow: 0 0 0 1000px var(--frame-bg) inset !important;
+    -webkit-text-fill-color: var(--text-color) !important;
+    transition: background-color 5000s ease-in-out 0s;
+}
+
+.input-group input:focus-visible,
 .input-group input:focus {
     border-color: var(--accent-color);
     /* box-shadow: 0 0 5px rgba(0, 206, 104, 0.3); */
@@ -396,7 +423,7 @@ body {
 }
 
 #control-box {
-    border: #4d4d4d solid 1px;
+    border: #111111 solid 1px;
     padding: 0px 0px;
     animation: fadeIn 0.4s ease-out;
 }
@@ -406,7 +433,7 @@ body {
 }
 
 #system-box {
-    border: #4d4d4d solid 1px;
+    border: #111111 solid 1px;
     padding: 0px 0px;
     animation: fadeIn 0.4s ease-out 0.2s both;
 }
@@ -422,7 +449,7 @@ body {
 .tab-content {
     height: 100%;
     border-radius: 0;
-    gap: 10px;
+    gap: 5px;
     width: 370px;
     margin: 0;
 }
@@ -618,9 +645,11 @@ body {
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.input-group input:focus {
+.input-group input:focus,
+.input-group input:focus-visible {
+    outline: none !important;
+    outline-width: 0 !important;
     animation: inputFocus 0.3s ease;
-    outline-width: 0;
 }
 
 @keyframes inputFocus {
@@ -655,7 +684,7 @@ body {
         <div class="title" style="display: flex; align-items: center; justify-content: center; gap: 10px;">
             Android TikTok Controller
         </div>
-        <div class="subtitle">Powered by kelix.me & KR.Corp</div>
+        <div class="subtitle">Powered by kelix.me & KR.Corp <span style="font-family: 'Unbounded', 'Segoe UI emoji'; color: var(--accent-color); font-size: inherit;">v{{ app_version }}</span></div>
         <div class="separator"></div>
     </div>
     <div id="box-grid">
@@ -685,11 +714,15 @@ body {
                     <div class="section-title">Системные кнопки</div>
                     <div id="control-box-btn" style="margin-bottom: 8px;">
                         <div class="btn-row">
-                            <button class="btn btn-vol_min" style="background: #130b2b; padding: 6px 0px; max-width: 50px; font-size: 12px;" onclick="performAction('vol_min')">🔈➖</button>
-                            <button class="btn btn-vol_plus" style="background: #130b2b; padding: 6px 0px; max-width: 50px; font-size: 12px;" onclick="performAction('vol_plus')"> 🔊➕</button>
-                            <button class="btn" style="padding: 6px 0px; font-size: 12px;" onclick="performAction('back')">Назад</button>
-                            <button class="btn" style="padding: 6px 0px; font-size: 12px;" onclick="performAction('home')">Домой</button>
-                            <button class="btn" style="padding: 6px 0px; font-size: 12px;" onclick="performAction('recent')">Задачи</button>
+                            <button class="btn btn-pin" style="padding: 6px 0px;" onclick="performAction('open_tiktok')">TikTok</button>
+                            <button class="btn btn-pin" style="padding: 6px 0px;" onclick="performAction('open_tiktok_lite')">TikTok Lite</button>
+                        </div>
+                        <div class="btn-row">
+                            <button class="btn btn-vol_min" style="background: #130b2b; padding: 6px 0px; max-width: 50px;" onclick="performAction('vol_min')">🔈➖</button>
+                            <button class="btn btn-vol_plus" style="background: #130b2b; padding: 6px 0px; max-width: 50px;" onclick="performAction('vol_plus')"> 🔊➕</button>
+                            <button class="btn" style="padding: 6px 0px;" onclick="performAction('back')">Назад</button>
+                            <button class="btn" style="padding: 6px 0px;" onclick="performAction('home')">Домой</button>
+                            <button class="btn" style="padding: 6px 0px;" onclick="performAction('recent')">Задачи</button>
                         </div>
                         <div class="btn-row">
                             <button id="restartScrcpyBtn" class="btn btn-restart">Перезапустить scrcpy</button>
@@ -802,9 +835,27 @@ body {
 
         // Добавляем обработчики событий на все input элементы
         Object.values(inputs).forEach(input => {
-            input.addEventListener('input', updateCSSVariables);
-            input.addEventListener('change', updateCSSVariables);
+            input.addEventListener('input', onCoordinatesInput);
+            input.addEventListener('change', onCoordinatesInput);
         });
+
+        // Отправка preview координат на сервер при вводе, до сохранения
+        let previewTimer = null;
+        function onCoordinatesInput() {
+            updateCSSVariables();
+            clearTimeout(previewTimer);
+            previewTimer = setTimeout(function() {
+                fetch('/preview_coords', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        pause_x: inputs.pause_x.value, pause_y: inputs.pause_y.value,
+                        like_x: inputs.like_x.value, like_y: inputs.like_y.value,
+                        pin_x: inputs.pin_x.value, pin_y: inputs.pin_y.value
+                    })
+                });
+            }, 10);
+        }
 
         // Инициализируем CSS переменные при загрузке
         updateCSSVariables();
@@ -816,6 +867,36 @@ body {
                         <div class="input-group" style="padding-left: 10px; justify-content: space-between; margin-bottom: 5px;">
                             <label>FPS частота кадров:</label>
                             <input placeholder="60" type="text" id="scrcpy_fps" value="{{ scrcpy_fps }}" style="flex: 1;">
+                        </div>
+                        <div class="input-group" style="padding-left: 10px; justify-content: space-between; margin-bottom: 5px;">
+                            <label>Аппаратное декодирование:</label>
+                            <select id="scrcpy_hwdec" style="flex: 1; background-color: var(--frame-bg); color: var(--text-color); border: 1px solid var(--highlight); padding: 5px; font-size: 12px;">
+                                <option value="auto" {% if scrcpy_hwdec == 'auto' %}selected{% endif %}>Авто</option>
+                                <option value="disabled" {% if scrcpy_hwdec == 'disabled' %}selected{% endif %}>Выкл</option>
+                                <option value="d3d11va" {% if scrcpy_hwdec == 'd3d11va' %}selected{% endif %}>Вкл (d3d11va)</option>
+                            </select>
+                        </div>
+                        <div class="input-group" style="padding-left: 10px; justify-content: space-between; margin-bottom: 5px;">
+                            <label>Видеокодек:</label>
+                            <select id="scrcpy_codec" style="flex: 1; background-color: var(--frame-bg); color: var(--text-color); border: 1px solid var(--highlight); padding: 5px; font-size: 12px;">
+                                <option value="h264" {% if scrcpy_codec == 'h264' %}selected{% endif %}>H.264 (по умолч.)</option>
+                                <option value="h265" {% if scrcpy_codec == 'h265' %}selected{% endif %}>H.265</option>
+                                <option value="av1" {% if scrcpy_codec == 'av1' %}selected{% endif %}>AV1</option>
+                                <option value="vp8" {% if scrcpy_codec == 'vp8' %}selected{% endif %}>VP8</option>
+                                <option value="vp9" {% if scrcpy_codec == 'vp9' %}selected{% endif %}>VP9</option>
+                            </select>
+                        </div>
+                        <div class="input-group" style="padding-left: 10px; justify-content: space-between; margin-bottom: 5px;">
+                            <label>Битрейт (бит/с):</label>
+                            <input placeholder="2M" type="text" id="scrcpy_bitrate" value="{{ scrcpy_bitrate }}" style="flex: 1;">
+                        </div>
+                        <div class="input-group" style="padding-left: 10px; justify-content: space-between; margin-bottom: 5px;">
+                            <label>Видео-буфер (мс):</label>
+                            <input placeholder="0" type="text" id="scrcpy_video_buffer" value="{{ scrcpy_video_buffer }}" style="flex: 1;">
+                        </div>
+                        <div class="input-group" style="padding-left: 10px; justify-content: space-between; margin-bottom: 5px;">
+                            <label>Аудио-буфер (мс):</label>
+                            <input placeholder="0" type="text" id="scrcpy_audio_buffer" value="{{ scrcpy_audio_buffer }}" style="flex: 1;">
                         </div>
                         <div class="input-group" style="padding-left: 10px; justify-content: space-between; margin-bottom: 5px;">
                             <label>Тип ADB подключения:</label>
@@ -916,182 +997,8 @@ body {
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-<script>
-    const img = new Image();
-    img.onload = function() {
-        
-        // Создаем элемент style
-        const style = document.createElement('style');
-        
-        // Устанавливаем CSS с переменными
-        style.textContent = `
-            :root {
-                --screen_phone_h: ${this.height};
-                --screen_phone_w: ${this.width};
-            }
-        `;
-        
-        // Добавляем стили в head документа
-        document.head.appendChild(style);
-    }
-    img.src = 'http://127.0.0.1:56987/files/screen.png';
-</script>
-        <!-- <img src="http://127.0.0.1:56987/files/screen.png" alt="" style="border: #00a6ed 1px solid;"> -->
-        <div id="settings" class="tab-screen" style="position: relative; border: #222222 1px solid;" data-tab="settings">
-            <style>
-                .cord_pause{
-                    background: #6ad2ff; 
-                    color: #000000;
-                    height: 3px;
-                    width: 3px;
-                    border-radius: 100px;
-                    font-weight: 900;
-                    position: absolute; 
-                    font-size: 0px;
-                    left: calc((var(--pause-cor-x) / var(--screen_phone_w)) * 100%);
-                    top: calc((var(--pause-cor-y) / var(--screen_phone_h)) * 100%);
-                    transition: e all 0.5s ease-in-out;
-                }
-                .cord_like{
-                    background: #fe2c55;
-                    color: #000000;
-                    height: 3px;
-                    width: 3px;
-                    border-radius: 100px;
-                    font-weight: 900;
-                    position: absolute; 
-                    font-size: 0px;
-                    left: calc((var(--like-cor-x) / var(--screen_phone_w)) * 100%);
-                    top: calc((var(--like-cor-y) / var(--screen_phone_h)) * 100%);
-                }
-                .cord_pin{
-                    background: #face15; 
-                    color: #000000;
-                    height: 3px;
-                    width: 3px;
-                    border-radius: 100px;
-                    font-weight: 900;
-                    position: absolute; 
-                    font-size: 0px;
-                    left: calc((var(--pin-cor-x) / var(--screen_phone_w)) * 100%);
-                    top: calc((var(--pin-cor-y) / var(--screen_phone_h)) * 100%);
-                }
-                .cord_pause::after{
-                    content: '';
-                    background: #000; 
-                    color: #face15;
-                    height: 1px;
-                    width: 20px;
-                    transform: rotate(30deg);
-                    position: absolute; 
-                    font-size: 1px;
-                    right: 0px;
-                    bottom: 7px;
-                    margin-right: 1px;
-                }
-                .cord_like::after{
-                    content: '';
-                    background: #000; 
-                    color: #face15;
-                    height: 1px;
-                    width: 20px;
-                    transform: rotate(30deg);
-                    position: absolute; 
-                    font-size: 0px;
-                    right: 0px;
-                    bottom: 7px;
-                    margin-right: 1px;
-                }
-                .cord_pin::after{
-                    content: '';
-                    background: #000; 
-                    color: #face15;
-                    height: 1px;
-                    width: 20px;
-                    transform: rotate(30deg);
-                    position: absolute; 
-                    font-size: 0px;
-                    right: 0px;
-                    bottom: 7px;
-                    margin-right: 1px;
-                }
-                .cord_pause::before{
-                    content: 'ПАУЗА';
-                    font-family: 'Unbounded', 'Segoe UI emoji';
-                    background: #000; 
-                    color: #6ad2ff;
-                    font-weight: 600; 
-                    position: absolute; 
-                    font-size: 8px;
-                    padding: 2px 5px;
-                    right: 15px;
-                    bottom: 5px;
-                }
-                .cord_like::before{
-                    content: 'ЛАЙК';
-                    font-family: 'Unbounded', 'Segoe UI emoji';
-                    background: #000; 
-                    color: #fe2c55;
-                    font-weight: 600; 
-                    position: absolute; 
-                    font-size: 8px;
-                    padding: 2px 5px;
-                    right: 15px;
-                    bottom: 5px;
-                }
-                .cord_pin::before{
-                    content: 'ИЗБРАННОЕ';
-                    font-family: 'Unbounded', 'Segoe UI emoji';
-                    background: #000; 
-                    color: #face15;
-                    font-weight: 600; 
-                    position: absolute; 
-                    font-size: 8px;
-                    padding: 2px 5px;
-                    right: 15px;
-                    bottom: 5px;
-                }
-            </style>
-            <div class="cord_pause"></div>
-            <div class="cord_like"></div>
-            <div class="cord_pin"></div>
-            <img id="screen_image" style="height: 100%;" src="http://127.0.0.1:56987/files/screen.png">
-            <!-- <img style="height: 100%;" src="./screen.png"> -->
-            <script>
-                // Запускаем скрипт сразу после загрузки DOM
-document.addEventListener('DOMContentLoaded', function() {
-    const screenImage = document.getElementById('screen_image');
-    
-    // URL изображения
-    const imageUrl = 'http://127.0.0.1:56987/files/screen.png';
-    
-    // Функция для обновления изображения с временной меткой
-    function updateScreenImage() {
-        // Добавляем временную метку для предотвращения кэширования
-        const timestamp = new Date().getTime();
-        screenImage.src = `${imageUrl}?t=${timestamp}`;
-        
-        // Обработка ошибок загрузки изображения
-        screenImage.onerror = function() {
-            console.warn('Не удалось загрузить изображение', screenImage.src);
-        };
-    }
-    
-    // Обновляем изображение сразу при загрузке страницы
-    updateScreenImage();
-    
-    // Устанавливаем интервал обновления каждые 10 миллисекунд
-    const intervalId = setInterval(updateScreenImage, 2000);
-    
-    // Очистка интервала при закрытии страницы (опционально)
-    window.addEventListener('beforeunload', function() {
-        clearInterval(intervalId);
-    });
-});
-            </script>
-        </div>
+</div>
+    </div>
         <!-- Логи действий -->
         <div class="log-container">
             <div class="log-title">Логи действий</div>
@@ -1187,6 +1094,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const adbIp = document.getElementById('adb_ip').value;
         const adbPort = document.getElementById('adb_port').value;
         const scrcpyFps = document.getElementById('scrcpy_fps').value;
+        const scrcpyHwdec = document.getElementById('scrcpy_hwdec').value;
+        const scrcpyCodec = document.getElementById('scrcpy_codec').value;
+        const scrcpyBitrate = document.getElementById('scrcpy_bitrate').value;
+        const scrcpyVideoBuffer = document.getElementById('scrcpy_video_buffer').value;
+        const scrcpyAudioBuffer = document.getElementById('scrcpy_audio_buffer').value;
 
         if (connectionType === "wifi") {
             if (!adbIp || !adbPort || !scrcpyFps) {
@@ -1220,6 +1132,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 adb_ip: adbIp,
                 adb_port: adbPort,
                 scrcpy_fps: scrcpyFps,
+                scrcpy_hwdec: scrcpyHwdec,
+                scrcpy_codec: scrcpyCodec,
+                scrcpy_bitrate: scrcpyBitrate,
+                scrcpy_video_buffer: scrcpyVideoBuffer,
+                scrcpy_audio_buffer: scrcpyAudioBuffer,
             }),
         });
 
@@ -1427,14 +1344,6 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         </div>
     </div>
-    <style>
-        .tab-screen{
-            display: none;
-        }
-        .tab-screen.active{
-            display: block;
-        }
-    </style>
     <script>
         // Переключение вкладок
         document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -1442,17 +1351,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 const tabId = btn.getAttribute('data-tab');
                 document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
                 document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-                document.querySelectorAll('.tab-screen').forEach(tab => {
-                    if (tab.classList.contains('active')) {
-                        if (tabId !== 'settings') {
-                            tab.classList.remove('active');
-                        }
-                    } else {
-                        if (tabId == 'settings') {
-                            tab.classList.add('active');
-                        }
-                    }
-                });
 
                 btn.classList.add('active');
                 document.getElementById(tabId).classList.add('active');

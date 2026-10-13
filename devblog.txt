@@ -1,0 +1,128 @@
+DEV-BLOG / ЖУРНАЛ ИЗМЕНЕНИЙ
+Проект: ADB Android TikTok Controller
+Рабочая версия: 3.0 (D:\tiktok_adb_control)
+Сравнение с последним коммитом git: a3f61bb "fix RCN TEST" (репозиторий G:\ADB-Android-TikTok-Controller)
+Дата: 2026-10-13
+
+ПОЯСНЕНИЕ О СРАВНЕНИИ
+Рабочая папка D:\tiktok_adb_control не является самим git-репозиторием — репозиторий
+находится в G:\ADB-Android-TikTok-Controller и содержит предыдущую версию (comit a3f61bb).
+Ниже — сводка изменений между последней версией из git и текущими файлами в рабочей папке.
+
+-------------------------------------------------------------------------
+█ 1. ДОБАВЛЕНО (новые функции и код)
+-------------------------------------------------------------------------
+
+1.1. Переход с pywebview на Tkinter + tkwry
+     - app.py: вместо import webview теперь используются
+       import tkinter as tk и from tkwry import WebView (строки 15-16).
+     - Окно приложения строится через tk.Tk(), а веб-интерфейс встраивается
+       в tkinter-фрейм через WebView (строки 1093-1108).
+     - Старый код webview.create_window(...) и window.events.closed += ...
+       выпилен (в git он был; в рабочей версии закомментирован/удалён).
+     - В requirements.txt pywebview заменён на tkwry>=0.1.9.
+
+1.2. Собственный оверлей маркеров поверх окна scrcpy (класс MarkerOverlay)
+     - Новая система плавающих маркеров "ПАУЗА / ЛАЙК / ИЗБРАННОЕ" поверх экрана телефона.
+     - Каждый маркер — отдельное top-level окно Windows со своей альфой (слой co/color-key +
+       alpha), что даёт независимое плавное появление/исчезновение каждого элемента.
+     - Реализовано через Win32 API: WS_EX_TRANSPARENT/TOOLWINDOW/NOACTIVATE/LAYERED,
+       SetLayeredWindowAttributes, поиск окна scrcpy по PID (find_window_by_pid).
+     - Вспышки маркеров при нажатии кнопок (flash_now), FADE_STEP, независимая альфа.
+
+1.3. Автоопределение каталога приложения для PyInstaller (one-dir)
+     - _app_dir(): в собранном exe возвращает папку рядом с exe, а не текущий каталог.
+     - _app_path(): пути к конфигам и картинкам теперь рядом с exe.
+     - _internal_path(): поиск ресурсов (screen.png, app.ico) в подкаталоге _internal сборки.
+     - _bin_dirs(): добавление _internal в PATH, чтобы команды scrcpy/adb находились
+       и в исходнике, и в собранном exe.
+
+1.4. APP_VERSION = "3.0"
+     - Добавлена глобальная константа и выводится в заголовке окна.
+
+1.5. Класс/функция png_dimensions(path)
+     - Чтение размеров PNG из заголовка IHDR без внешних библиотек.
+
+1.6. Автообновление размеров экрана телефона
+     - refresh_phone_dims(): размеры оверлея берутся из свежего скриншота screen.png
+       (для корректного масштабирования маркеров).
+
+1.7. Функции для надёжного завершения
+     - find_window_by_pid, close_console(), kill_scrcpy_by_pid (убивает ТОЛЬКО свой
+       scrcpy по сохранённому PID и его дерево), force_exit().
+     - Регистрация atexit-хука kill_scrcpy_by_pid.
+
+1.8. Открытие TikTok с автоопределением launch-activity
+     - open_app(package): определение реальной activity через
+       'cmd package resolve-activity --brief', запасной вариант через monkey.
+     - open_tiktok, open_tiktok_lite (com.zhiliaoapp.musically(.go)).
+
+1.9. Больше аргументов scrcpy в настройках
+     - scrcpy_hwdec, scrcpy_codec, scrcpy_bitrate, scrcpy_video_buffer, scrcpy_audio_buffer.
+     - _scrcpy_base_args(): max-fps, stay-awake, turn-screen-off, no-mouse-hover,
+       keep-active, disable-screensaver, hwdec, video-codec, background-color.
+
+1.10. Новые действия/кнопки в веб-интерфейсе
+     - vol_plus/vol_min (громкость), home/back/recent (системные клавиши),
+       open_tiktok/open_tiktok_lite, restart_scrcpy.
+     - обработка в handle_action.
+
+1.11. config.json перенесён в каталог приложения
+     - self.config_file = _app_path("config.json") (вместо жёсткого "config.json").
+
+-------------------------------------------------------------------------
+█ 2. ИСПРАВЛЕНО (багфиксы, изменения поведения)
+-------------------------------------------------------------------------
+
+2.1. Завершение scrcpy при закрытии
+     - Теперь закрывается ТОЛЬКО свой scrcpy по сохранённому PID (kill_scrcpy_by_pid),
+       а не все процессы scrcpy системы.
+
+2.2. Повышение надёжности ADB
+     - Во всех вспомогательных вызовах adb/connect добавлен параметр
+       creationflags=subprocess.CREATE_NO_WINDOW (теперь консоль не мигает).
+     - buffering/текстовый режим scrcpy (universal_newlines) сохранён/улучшен.
+
+2.3. Улучшено сохранение настроек подключения
+     - Расширенная сигнатура save_connection_settings с поддержкой новых полей
+       (hwdec, codec, bitrate, video/audio buffer) и подзаписью в config.json.
+
+2.4. Сохранение скриншотов и текстур
+     - screen.png и texture.json теперь пишутся через _internal_path()/ _app_path()
+       (рядом с exe/в ресурсах), а не в текущую рабочую папку.
+
+2.5. app.bat
+     - Убран pause в конце (окно консоли теперь закрывается через close_console()).
+
+2.6. README.md
+     - Обновлён до версии 3.0, добавлено описание двух интерфейсов (tkwry + горячие клавиши).
+
+-------------------------------------------------------------------------
+█ 3. УДАЛЕНО
+-------------------------------------------------------------------------
+
+3.1. Библиотека pywebview
+     - import webview удалён, зависимость pywebview убрана из requirements.txt.
+
+3.2. Старый запуск через webview.create_window / webview.start()
+     - Весь блок webview-окна заменён на tkinter + tkwry WebView.
+
+3.3. Лишние старые конфиг-пути
+     - Жёсткие относительные пути ("config.json", "screen.png", "texture.json") заменены
+       на пути через _app_path()/_internal_path().
+
+3.4. Устаревшие фрагменты кода автозапуска указателя
+     - Закомментирован/снят блок включения указателя только на вкладке настроек
+       (controller.set_pointer_location(tab == "settings")) и часть устаревших комментариев.
+
+-------------------------------------------------------------------------
+СМЕНА БИНАРНИКОВ (не код)
+-------------------------------------------------------------------------
+Версии исполняемых/DLL-файлов (adb.exe, adbwinapi.dll, scrcpy.exe, SDL3.dll,
+avformat/avcodec/avutil, swresample, libusb) в рабочей папке новее, чем в git-коммите
+a3f61bb (hash-сравнение показывает отличие). Это соответствует обновлению scrcpy/ADB
+и переходу на актуальные библиотеки.
+
+ПРОПУЩЕННЫЕ/НЕОТСЛЕЖЕННЫЕ ФАЙЛЫ
+В git-репозитории отмечены как untracked: app.spec, build.bat, build/, dist/,
+scr.png, screen.png, texture.json — они существуют только локально.
