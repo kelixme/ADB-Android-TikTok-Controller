@@ -27,6 +27,7 @@ pyi-makespec --onedir --windowed --icon "app.ico" --name "%NAME%" ^
   --add-data "app.bat;." ^
   --add-data "build.bat;." ^
   --add-data "config.json;." ^
+  --add-data "scrcpy-server;" ^
   "app.py"
 
 if errorlevel 1 (
