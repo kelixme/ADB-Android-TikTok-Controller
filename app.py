@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, jsonify, send_from_directory
 import ctypes
 import json
 import os
+import socket
 import subprocess
 import sys
 import threading
@@ -1079,9 +1080,29 @@ def shutdown():
 def run_flask():
     app.run(debug=False, port=56987)
 
+def wait_for_server(host, port, timeout=30):
+    """Ждёт, пока Flask реально начнёт принимать соединения.
+    Без этого WebView открывает страницу до поднятия сервера и получает
+    ERR_CONNECTION_REFUSED (который wry не повторяет) — особенно в собранном exe."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            with socket.create_connection((host, port), timeout=0.5):
+                return True
+        except OSError:
+            time.sleep(0.05)
+    return False
+
 if __name__ == "__main__":
     flask_thread = threading.Thread(target=run_flask, daemon=True)
     flask_thread.start()
+
+    # Ждём поднятия Flask-сервера, иначе WebView открывает страницу раньше
+    # времени и wry показывает ERR_CONNECTION_REFUSED (без повторной попытки).
+    if not wait_for_server("127.0.0.1", 56987):
+        print("Ошибка: Flask-сервер не запустился за отведённое время.")
+    else:
+        print(f"Flask-сервер запущен на http://127.0.0.1:56987/")
     
     # window = webview.create_window(
     #     'Android Controller', 
