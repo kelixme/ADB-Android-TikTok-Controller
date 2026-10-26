@@ -4,7 +4,8 @@
 
 ![Интерфейс приложения](screenshot.png)
 
-**Версия:** 3.0
+**Версия:** 3.1
+скачать последний релиз https://github.com/kelixme/ADB-Android-TikTok-Controller/releases/latest/download/ADB-TikTokControllerProtable.zip
 
 ## Возможности
 
