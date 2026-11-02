@@ -1,8 +1,4 @@
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
-from starlette.responses import FileResponse
-from typing import Optional
+from flask import Flask, render_template, request, jsonify, send_from_directory
 import ctypes
 import json
 import os
@@ -13,6 +9,72 @@ import threading
 import time
 import queue
 from ctypes import wintypes
+
+APP_VERSION = "3.1"
+
+# --- Защита от множественного запуска (single instance) ---
+# Именованный мьютекс уровня сессии: второй экземпляр видит ERROR_ALREADY_EXISTS
+# и завершается, пока первый держит свой дескриптор открытым.
+_INSTANCE_MUTEX_NAME = "Local\\ADB_TikTok_Controller_MultiTool"
+_instance_mutex_handle = None
+
+def _acquire_single_instance() -> bool:
+    """True, если текущий процесс — первый (или мьютекс недоступен/не Win32)."""
+    global _instance_mutex_handle
+    if sys.platform != "win32":
+        return True
+    try:
+        kernel32 = ctypes.windll.kernel32
+        kernel32.CreateMutexW.restype = wintypes.HANDLE
+        kernel32.CreateMutexW.argtypes = [ctypes.c_void_p, wintypes.BOOL, wintypes.LPCWSTR]
+        h = kernel32.CreateMutexW(None, False, _INSTANCE_MUTEX_NAME)
+        if not h:
+            return True
+        if kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+            kernel32.CloseHandle(h)
+            return False
+        _instance_mutex_handle = h
+        return True
+    except Exception:
+        return True
+
+def _release_single_instance():
+    global _instance_mutex_handle
+    if _instance_mutex_handle:
+        try:
+            ctypes.windll.kernel32.CloseHandle(_instance_mutex_handle)
+        except Exception:
+            pass
+        _instance_mutex_handle = None
+
+
+_PRIMARY_INSTANCE = _acquire_single_instance()
+if not _PRIMARY_INSTANCE:
+    # Уже запущен первый экземпляр — немедленно завершаем второй,
+    # не поднимая Flask, scrcpy и WebView.
+    print("Приложение уже запущено. Второй экземпляр завершён.", file=sys.stderr)
+    sys.exit(0)
+if sys.platform == "win32":
+    import atexit
+    atexit.register(_release_single_instance)
+
+# --- Выбор свободного порта ---
+# Если фиксированный порт занят другим процессом — берём следующий свободный.
+BASE_PORT = 56987
+
+def _pick_free_port(start=BASE_PORT, attempts=100) -> int:
+    global BASE_PORT
+    for candidate in range(start, start + attempts):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.bind(("127.0.0.1", candidate))
+                return candidate
+        except OSError:
+            continue
+    return 0  # редкий случай: свободный порт не найден
+
+PORT = _pick_free_port()
+
 from keyboard import _canonical_names as _kb_canon
 
 import keyboard
@@ -22,8 +84,6 @@ import atexit
 import tkinter as tk
 from tkinter import font as tkfont
 from tkwry import WebView
-
-APP_VERSION = "3.1"
 
 # --- Acrylic-прозрачность + резкие углы окна (как в window-code.py) ---
 # Атрибуты DWM (см. window-code.py, порт мода "Mica" moe.caramel.mica):
@@ -194,16 +254,7 @@ def _internal_path(name):
             return p
     return _app_path(name)
 
-app = FastAPI()
-templates = Jinja2Templates(directory=os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates"))
-
-def _jinja(request: Request, name: str, **context):
-    """Рендер Jinja-шаблона с подстановкой request; аналог render_template."""
-    return templates.TemplateResponse(
-        request=request,
-        name=name,
-        context=context,
-    )
+app = Flask(__name__)
 
 # В собранном (PyInstaller onedir) приложении scrcpy.exe, adb.exe и DLL лежат в
 # каталоге _internal, которого нет в PATH. Добавляем его, чтобы команды
@@ -497,7 +548,7 @@ class MarkerOverlay:
 
         # Плашки scroll_up/scroll_down — без изменений
         if name in self.SCROLL_MARKERS:
-            font = ('Consolas', 10, 'bold')
+            font = ('Consolas', 12, 'bold')
             text_w = int(tkfont.Font(font=font).measure(label))
             win_w = text_w + 10
             win_h = 18
@@ -1869,8 +1920,8 @@ def get_active_process_name():
 controller = AndroidController()
 _overlay = None
 
-@app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
+@app.route('/')
+def index():
     scrcpy_running = controller.scrcpy_process and controller.scrcpy_process.poll() is None
     # По умолчанию выключаем отображение указателя
     controller.set_pointer_location(False)
@@ -1897,7 +1948,7 @@ async def index(request: Request):
     pin_rel_x = center_x + (int(pin_x) - screen_width // 2) // 3
     pin_rel_y = center_y + (int(pin_y) - screen_height // 2) // 3
     
-    return _jinja(request, 'index.html', 
+    return render_template('index.html', 
         app_version=APP_VERSION,
         pause_coords=controller.pause_coords.split(),
         like_coords=controller.like_coords.split(),
@@ -1918,43 +1969,43 @@ async def index(request: Request):
         scrcpy_audio_buffer=controller.scrcpy_audio_buffer,
         hotkeys=controller.hotkeys)
 
-@app.post("/tab_changed")
-async def tab_changed(request: Request):
-    data = await request.json()
-    tab = data.get('tab')
+@app.route('/tab_changed', methods=['POST'])
+def tab_changed():
+    data = request.json
+    tab = data.get('tab') # type: ignore
     controller.current_tab = tab
-    return {"success": True}
+    return jsonify({'success': True})
 
-@app.post("/action")
-async def handle_action(request: Request):
-    data = await request.json()
-    action = data.get('action')
+@app.route('/action', methods=['POST'])
+def handle_action():
+    data = request.json
+    action = data.get('action') # type: ignore
 
     if action == "update_hotkey":
         success = controller.update_hotkey(
-            data.get('action_name'),
-            data.get('key')
+            data.get('action_name'), # type: ignore
+            data.get('key') # type: ignore
         )
     elif action == "save_connection_settings":
         success = controller.save_connection_settings(
-            data.get('connection_type'),
-            data.get('adb_ip'),
-            data.get('adb_port'),
-            data.get('scrcpy_fps'),
-            data.get('scrcpy_hwdec'),
-            data.get('scrcpy_codec'),
-            data.get('scrcpy_bitrate'),
-            data.get('scrcpy_video_buffer'),
-            data.get('scrcpy_audio_buffer')
+            data.get('connection_type'), # type: ignore
+            data.get('adb_ip'), # type: ignore
+            data.get('adb_port'), # type: ignore
+            data.get('scrcpy_fps'), # type: ignore
+            data.get('scrcpy_hwdec'), # type: ignore
+            data.get('scrcpy_codec'), # type: ignore
+            data.get('scrcpy_bitrate'), # type: ignore
+            data.get('scrcpy_video_buffer'), # type: ignore
+            data.get('scrcpy_audio_buffer') # type: ignore
         )
     elif action == "save_coords":
         success = controller.save_coords(
-            data.get('pause_x'),
-            data.get('pause_y'),
-            data.get('like_x'),
-            data.get('like_y'),
-            data.get('pin_x'),
-            data.get('pin_y')
+            data.get('pause_x'), # type: ignore
+            data.get('pause_y'), # type: ignore
+            data.get('like_x'), # type: ignore
+            data.get('like_y'), # type: ignore
+            data.get('pin_x'), # type: ignore
+            data.get('pin_y') # type: ignore
         )
     elif action in [
             "pause", 
@@ -2000,111 +2051,92 @@ async def handle_action(request: Request):
     if success and _overlay is not None and action in MarkerOverlay.MARKER_GEOM:
         _overlay.flash_now(action)
     
-    return {
+    return jsonify({
         'success': success,
         'logs': controller.log_messages,
         'scrcpy_running': controller.scrcpy_process and controller.scrcpy_process.poll() is None
-    }
+    })
 
-@app.get("/get_logs")
-async def get_logs():
-    return {
+@app.route('/get_logs')
+def get_logs():
+    return jsonify({
         'logs': controller.log_messages,
         'scrcpy_running': controller.scrcpy_process and controller.scrcpy_process.poll() is None
-    }
+    })
 
-@app.get("/get_coords")
-async def get_coords():
+@app.route('/get_coords')
+def get_coords():
     """Возвращает текущие координаты контроллера. Интерфейс опрашивает их,
     чтобы автоматически подхватывать координаты при смене подключённого
     устройства (без перезагрузки страницы)."""
-    return {
+    return jsonify({
         'pause': controller.pause_coords.split(),
         'like': controller.like_coords.split(),
         'pin': controller.pin_coords.split(),
         'device_serial': controller.device_serial
-    }
+    })
 
-@app.post("/preview_coords")
-async def preview_coords(request: Request):
+@app.route('/preview_coords', methods=['POST'])
+def preview_coords():
     """Живой предпросмотр координат оверлея: обновляет in-memory значения
     контроллера, не записывая их в config.json. Маркеры оверлея считывают
     координаты напрямую из этих полей каждый тик, поэтому сразу перемещаются.
     Сохранение в файл выполняет отдельный эндпоинт save_coords."""
-    data = await request.json()
+    data = request.json
     success = controller.preview_coords(
         data.get('pause_x'), data.get('pause_y'),
         data.get('like_x'), data.get('like_y'),
         data.get('pin_x'), data.get('pin_y')
     )
-    return {'success': success}
+    return jsonify({'success': success})
 
-@app.post("/reset_coords")
-async def reset_coords():
+@app.route('/reset_coords', methods=['POST'])
+def reset_coords():
     """Отмена несохранённых правок: возвращает in-memory координаты
     контроллера к значениям из config.json. Вернёт актуальные координаты,
     чтобы форма и оверлей обновились."""
     success = controller.reset_coords()
-    return {
+    return jsonify({
         'success': success,
         'pause': controller.pause_coords.split(),
         'like': controller.like_coords.split(),
         'pin': controller.pin_coords.split(),
-    }
+    })
 
 # Маршрут для обслуживания файлов из текущей директории
-@app.get("/files/{filename:path}")
-async def serve_files(filename: str):
+@app.route('/files/<path:filename>')
+def serve_files(filename):
     # Безопасная проверка пути
     base_directory = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.normpath(os.path.join(base_directory, filename))
+    file_path = os.path.join(base_directory, filename)
     
     # Проверяем, что файл находится в текущей директории (безопасность)
-    try:
-        if os.path.commonpath([base_directory, file_path]) != base_directory:
-            return "Access denied", 403
-    except ValueError:
+    if not os.path.commonpath([base_directory, file_path]) == base_directory:
         return "Access denied", 403
     
     if not os.path.exists(file_path):
         return "File not found", 404
         
-    return FileResponse(file_path)
+    return send_from_directory(base_directory, filename)
 
-@app.post("/shutdown")
-async def shutdown():
+@app.route('/shutdown', methods=['POST'])
+def shutdown():
     controller.cleanup()
-    # Принудительно завершаем процесс: весь поток завершится вместе с Tk-циклом.
-    import os
-    os._exit(0)
+    func = request.environ.get('werkzeug.server.shutdown')
+    if func is None:
+        raise RuntimeError('Not running with the Werkzeug Server')
+    func()
+    return 'Server shutting down...'
 
-def find_free_port(start=1000, end=65535):
-    """Возвращает свободный TCP-порт в диапазоне [start, end], или start,
-    если подходящий не найден (чтобы запуск не падал)."""
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        for p in tuple(range(start, end + 1)):
-            try:
-                s.bind(("127.0.0.1", p))
-                return p
-            except OSError:
-                continue
-        return start
-    finally:
-        s.close()
-
-
-def run_server(port):
-    """Запускает FastAPI-приложение через uvicorn в фоновом потоке.
-    Не печатать каждый HTTP-запрос в консоль — это главный источник спама."""
+def run_flask():
+    # Не печатать каждый HTTP-запрос в консоль — это главный источник спама.
     import logging
-    logging.getLogger('uvicorn.access').setLevel(logging.ERROR)
-    logging.getLogger('uvicorn.error').setLevel(logging.ERROR)
-    import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=port, log_level="error")
+    werkzeug_logger = logging.getLogger('werkzeug')
+    werkzeug_logger.setLevel(logging.ERROR)
+    app.run(debug=False, port=PORT, use_reloader=False)
 
 def wait_for_server(host, port, timeout=30):
-    """Ждёт, пока сервер реально начнёт принимать соединения.
+    """Ждёт, пока Flask реально начнёт принимать соединения.
     Без этого WebView открывает страницу до поднятия сервера и получает
     ERR_CONNECTION_REFUSED (который wry не повторяет) — особенно в собранном exe."""
     deadline = time.time() + timeout
@@ -2117,34 +2149,24 @@ def wait_for_server(host, port, timeout=30):
     return False
 
 if __name__ == "__main__":
-    # Защита от повторного запуска: один именованный мьютекс на всю систему.
-    # Если мьютекс уже создан — приложение уже работает, выходим.
-    MUTEX_NAME = "Local\\ADB_TikTok_Controller_SingleInstance"
-    kernel32 = ctypes.windll.kernel32
-    kernel32.CreateMutexW.restype = wintypes.HANDLE
-    kernel32.CreateMutexW.argtypes = [
-        ctypes.c_void_p, wintypes.BOOL, wintypes.LPCWSTR]
-    _mutex = kernel32.CreateMutexW(None, False, MUTEX_NAME)
-    if not _mutex or kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
-        # Приложение уже запущено — тихо завершаемся без диалога.
-        sys.exit(0)
+    if PORT == 0:
+        print("Ошибка: не удалось найти свободный порт для Flask.", file=sys.stderr)
+        sys.exit(1)
 
-    # Выбираем порт заранее: по умолчанию 1000, если занят — следующий свободный.
-    SERVER_PORT = find_free_port(start=1000)
+    flask_thread = threading.Thread(target=run_flask, daemon=True)
+    flask_thread.start()
 
-    server_thread = threading.Thread(target=run_server, args=(SERVER_PORT,), daemon=True)
-    server_thread.start()
-
-    # Создаем главное окно сразу — не ждём поднятия сервера.
+    # Создаем главное окно сразу — не ждём поднятия Flask-сервера.
     root = tk.Tk()
 
-    # Ожидание сервера — в фоновом потоке, чтобы не задерживать окно.
-    def _wait_server():
-        if wait_for_server("127.0.0.1", SERVER_PORT):
-            print(f"Сервер запущен на http://127.0.0.1:{SERVER_PORT}/")
+    # Ожидание Flask-сервера — в фоновом потоке, чтобы не задерживать окно.
+    # Пока сервер поднимается, WebView показывает локальную заглушку «загрузка…».
+    def _wait_flask():
+        if wait_for_server("127.0.0.1", PORT):
+            print(f"Flask-сервер запущен на http://127.0.0.1:{PORT}/")
         else:
-            print("Ошибка: сервер не запустился за отведённое время.")
-    threading.Thread(target=_wait_server, daemon=True).start()
+            print("Ошибка: Flask-сервер не запустился за отведённое время.")
+    threading.Thread(target=_wait_flask, daemon=True).start()
     root.title(f"ADB TikTok Controller - v{APP_VERSION}")
     root.geometry("710x650")
     root.resizable(False, False)
@@ -2165,8 +2187,39 @@ if __name__ == "__main__":
     # Создаем фрейм для WebView
     frame = tk.Frame(root)
     frame.pack(fill="both", expand=True)
-    # Встраиваем WebView с сайтом
-    web = WebView(frame, url=f"http://127.0.0.1:{SERVER_PORT}/")
+
+    # Открываем окно WebView сразу, без ожидания Flask: показываем пустую
+    # заглушку and загружаем реальную страницу динамически, как только сервер
+    # начнёт принимать соединения (моментальный старт окна, без пустого экрана).
+    _LOADING_HTML = (
+        '<!doctype html><html><head><meta charset="utf-8">'
+        '<style>html,body{margin:0;height:100%;display:flex;align-items:center;'
+        'justify-content:center;background:#101014;color:#8a8f98;'
+        'font-family:system-ui,Segoe UI,Arial;font-size:15px;}</style>'
+        '</head><body><div>Загрузка…</div></body></html>'
+    )
+    web = WebView(frame, html=_LOADING_HTML)
+
+    def _load_after_ready(wv):
+        # Сервер гарантированно поднят (этот вызов идёт после wait_for_server);
+        # дожидаемся готовности WebView и только тогда загружаем страницу.
+        def go():
+            try:
+                wv.load_url(f"http://127.0.0.1:{PORT}/")
+            except Exception as e:
+                print(f"[webview] не удалось загрузить страницу: {e}")
+        try:
+            wv.when_ready(go)
+        except Exception as e:
+            print(f"[webview] when_ready не вызван: {e}")
+
+    def _wait_flask_then_load():
+        if wait_for_server("127.0.0.1", PORT):
+            print(f"Flask-сервер запущен на http://127.0.0.1:{PORT}/")
+            root.after(0, lambda: _load_after_ready(web))
+        else:
+            print("Ошибка: Flask-сервер не запустился за отведённое время.")
+    threading.Thread(target=_wait_flask_then_load, daemon=True).start()
 
     # оверлей маркеров поверх окна scrcpy (того, что запустила эта программа)
     overlay = MarkerOverlay(root)
