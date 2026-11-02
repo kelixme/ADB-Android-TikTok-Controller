@@ -38,9 +38,12 @@
 body {
     background-color: var(--bg-color);
     color: var(--text-color);
-    padding: 10px;
+    padding: 5px;
     margin: 0 auto;
     animation: fadeIn 0.5s ease-in-out;
+    display: flex;
+    gap: 5px;
+    flex-direction: column;
 }
 
 /* @keyframes fadeIn {
@@ -51,7 +54,7 @@ body {
 .header {
     text-align: center;
     position: relative;
-    padding-top: 6px;
+    /* padding-top: 6px; */
 }
 
 .header::before {
@@ -74,23 +77,20 @@ body {
 
 .title {
     font-family: 'Unbounded', 'Segoe UI emoji';
-    font-size: 25px;
+    font-size: 18px;
     font-weight: bold;
-    margin-bottom: 5px;
+    margin-top: 2px;
+    /* margin-bottom: 5px; */
 }
 
 .subtitle {
     font-family: 'Unbounded', 'Segoe UI emoji';
     color: var(--text-color-secondary);
-    margin-bottom: 15px;
+    margin-bottom: 4px !important;
+    font-size: 10px;
 }
 
-.separator {
-    height: 1px;
-    background-color: var(--highlight);
-    margin: 10px 0;
-    animation: expandWidth 0.6s ease-out 0.4s both;
-}
+
 
 @keyframes expandWidth {
     from { width: 0; }
@@ -111,7 +111,7 @@ body {
     border: none;
     color: var(--text-color);
     cursor: pointer;
-    font-size: 14px;
+    font-size: 10px;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     overflow: hidden;
@@ -148,7 +148,7 @@ body {
     display: none;
     overflow-y: auto;
     flex-direction: column;
-    padding: 10px;
+    padding: 5px;
     gap: 2px;
     border: 1px solid var(--highlight);
     border-radius: 0px;
@@ -157,15 +157,16 @@ body {
 
 .tab-content.active {
     display: flex;
+    flex-direction: row;
 }
 
 .section-title {
-    margin-bottom: 10px;
+    margin-bottom: 5px;
     background: #111;
     padding: 0px 10px;
     font-size: 16px;
     font-weight: bold;
-    margin-bottom: 10px;
+    margin-bottom: 5px;
     color: var(--text-color);
     animation: fadeIn 0.4s ease-out;
     font-family: 'Unbounded', 'Segoe UI emoji';
@@ -178,7 +179,7 @@ body {
     font-family: 'Unbounded', 'Segoe UI emoji';
     width: 100%;
     padding: 10px;
-    margin-bottom: 2px;
+    /* margin-bottom: 2px; */
     border: none;
     border-radius: 0px;
     background-color: var(--frame-bg);
@@ -247,6 +248,10 @@ body {
     color: var(--accent-color);
 }
 
+.btn-danger {
+    color: #ff4d4f;
+}
+
 .btn-row {
     display: flex;
     gap: 2px;
@@ -260,31 +265,63 @@ body {
 .input-group {
     display: flex;
     align-items: center;
-    margin-bottom: 5px;
+    /* margin-bottom: 5px; */
     justify-content: center;
     animation: fadeIn 0.3s ease-out;
     background: #111111;
-    height: 27px;
+    height: 22px;
     display: flex;
+    justify-content: space-between;
     align-items: center;
     /* padding-left: 10px; */
 }
+.input-group> div> .btn {
+    min-width: 35px !important;
+    height: 22px !important;
+}
+.input-group > div {
+    align-items: center;
+    gap: 2px;
+    display: flex;
 
-.input-group label {
-    width: 230px;
-    font-size: 12px;
 }
 
+.input-group label {
+    /* width: 230px; */
+    font-size: 12px;
+    width: 100%;
+}
+
+.input-group select {
+    padding: 0 5px !important;
+    height: 22px;
+    min-width: 130px;
+    max-width: 130px;
+    font-size: 10px;
+    background-color: #000000 !important;
+}
 .input-group input {
     font-family: 'Unbounded', 'Segoe UI emoji';
-    width: 70px;
-    padding: 5px;
-    font-size: 12px;
-    background-color: var(--frame-bg);
-    border: 1px solid var(--highlight);
+    max-width: 60px;
+    padding: 0 5px;
+    height: 22px;
+    font-size: 10px;
+    background-color: #000000;
+    border: 1px solid #ffffff20;
+    /* background-color: var(--frame-bg); */
+    /* border: 1px solid var(--highlight); */
     color: var(--text-color);
-    margin-right: 5px;
+    margin-right: 0px;
+    margin: 0 !important;
     transition: all 0.3s ease;
+}
+
+#adb_ip{
+    max-width: 100px;
+}
+.ip-sell{
+    display: flex;
+    gap: 2px;
 }
 
 *,
@@ -323,26 +360,26 @@ select:-webkit-autofill {
     margin-bottom: 5px;
     cursor: pointer;
     padding: 5px;
+    background: #111111;
     border-radius: 3px;
     transition: all 0.3s ease;
     animation: fadeIn 0.3s ease-out;
 }
 
 .hotkey-item:hover {
-    background-color: var(--highlight);
+    /* background-color: var(--highlight); */
     /* transform: translateX(5px); */
 }
 
 .hotkey-key {
-    width: 80px;
+    max-width: 100px;
+    width: 100px;
     font-weight: bold;
 }
 
 .hotkey-desc {
     flex: 1;
     font-size: 12px;
-    background: #111111;
-    height: 27px;
     display: flex;
     align-items: center;
     padding-left: 10px;
@@ -351,13 +388,64 @@ select:-webkit-autofill {
     overflow: hidden;
 }
 
+html, body{
+    height: 100%;
+    width: 100%;
+}
 .log-container {
-    border: 1px solid var(--highlight);
     /* padding: 10px; */
     margin-top: 15px;
-    max-height: 200px;
+    /* max-height: 260px; */
+    min-height: 300px;
+    max-height: 300px;
+    /* height: 300px; */
+    padding-top: 5px;
+    padding-bottom: 5px;
     overflow-y: auto;
     background-color: var(--bg-color);
+    position: relative;
+}
+
+.log-autoscroll-btn>svg{
+    height: 12px;
+    width: 12px;
+}
+.log-containerB{
+    border: 1px solid var(--highlight);
+    position: relative;
+    width: 100%;
+}
+
+.log-autoscroll-btn {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    z-index: 10;
+    /* padding: 2px 2px; */
+    height: 26px;
+    width: 40px;
+    font-size: 12px;
+    font-weight: bold;
+    border: 1px solid var(--highlight);
+    border-radius: 2px;
+    cursor: pointer;
+    background: #111;
+    color: #888;
+    transition: color 0.2s, border-color 0.2s, background 0.2s;
+    font-family: var(--font-family, inherit);
+    color: #4caf50;
+    border-color: #4caf50;
+}
+
+.log-autoscroll-btn.on {
+    display: none;
+    /* color: #4caf50; */
+    /* border-color: #4caf50; */
+}
+
+.log-autoscroll-btn:hover {
+    border-color: var(--highlight);
+    color: var(--text-color);
 }
 
 .log-title {
@@ -365,14 +453,27 @@ select:-webkit-autofill {
     font-weight: bold;
     font-size: 16px;
     background: #111111;
-    margin-bottom: 8px;
-    padding: 2px 10px 5px 10px;
+    /* margin-bottom: 8px; */
+    padding: 2px 5px 5px 5px;
+
+    /* margin-bottom: 5px; */
+    background: #111;
+    /* padding: 0px 10px; */
+    font-size: 16px;
+    font-weight: bold;
+    /* margin-bottom: 10px; */
+    color: var(--text-color);
+    animation: fadeIn 0.4s ease-out;
+    font-family: 'Unbounded', 'Segoe UI emoji';
+    font-size: 10px;
+    color: #666666;
+    font-weight: 400;
 }
 
 .log-entry {
     font-size: 12px;
     /* margin-bottom: 5px; */
-    /* line-height: 1; */
+    line-height: 1;
     animation: fadeIn 0.2s ease-out;
 }
 
@@ -423,16 +524,24 @@ select:-webkit-autofill {
 }
 
 #control-box {
+    width: 100%;
+    /* max-height: 224px; */
     border: #111111 solid 1px;
     padding: 0px 0px;
+    overflow-y: auto;
     animation: fadeIn 0.4s ease-out;
 }
 
 #control-box-btn {
-    padding: 0px 10px;
+    padding: 0px 5px;
+    display: flex;
+    gap: 2px;
+    flex-direction: column;
+    overflow-y: auto;
 }
 
 #system-box {
+    width: 100%;
     border: #111111 solid 1px;
     padding: 0px 0px;
     animation: fadeIn 0.4s ease-out 0.2s both;
@@ -448,25 +557,28 @@ select:-webkit-autofill {
 
 .tab-content {
     height: 100%;
+    /* max-height: 200px; */
     border-radius: 0;
     gap: 5px;
-    width: 370px;
+    /* width: 370px; */
     margin: 0;
 }
 
 .log-container {
     width: 100%;
-    height: 100%;
-    max-height: unset;
+    /* height: 100%; */
+    /* max-height: unset; */
     margin: 0;
     border-radius: 0px;
 }
 
 #box-grid {
     gap: 5px;
-    height: 430px;
-    max-height: 4090px;
+    /* height: 430px; */
+    /* max-height: 4090px; */
+    height: 100%;
     display: flex;
+    flex-direction: column;
     animation: fadeInUp 0.6s ease-out 0.8s both;
 }
 
@@ -488,14 +600,8 @@ select:-webkit-autofill {
     margin: 0;
 }
 
-.separator {
-    height: 1px;
-    background-color: transparent;
-    margin: 10px 0;
-}
-
 .tab-btn {
-    font-size: 12px;
+    font-size: 10px;
     color: #a5a5a5;
 }
 
@@ -508,8 +614,8 @@ select:-webkit-autofill {
     position: relative;
     display: inline-flex;
     width: 130px;
-    height: 27px;
-    background-color: var(--frame-bg);
+    height: 22px;
+    background-color: #000000;
     border-radius: 0px;
     overflow: hidden;
     border: 1px solid var(--highlight);
@@ -558,19 +664,20 @@ select:-webkit-autofill {
 
 .hotkey-item {
     cursor: pointer;
-    padding: 5px;
+    padding: 0px 5px;
+    height: 22px;
     border-radius: 3px;
 }
 
-.hotkey-item:hover {
+/* .hotkey-item:hover {
     background-color: var(--highlight);
-}
+} */
 
 #hotkeyModal div {
     border: 1px solid var(--highlight);
 }
 #log-entries{
-    padding: 0px 10px;
+    padding: 0px 5px;
 }
 
 .log-entry > span, #log-entries {
@@ -622,7 +729,7 @@ select:-webkit-autofill {
     bottom: 0;
     left: 0;
     width: 100%;
-    height: 2px;
+    height: 1px;
     background: var(--accent-color);
     animation: pulse 2s infinite;
 }
@@ -670,15 +777,15 @@ select:-webkit-autofill {
 }
 </style>
     <style id="dynamicStyles"></style>
-    <div class="header" style="position: relative; padding-top: 6px;">
+    <div class="header" style="position: relative;">
         <div style="
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(90deg, #5b87ff 0%, #ff49a1 100%);
-            opacity: 0.2;
+            background: linear-gradient(90deg, #0051ff 0%, #ff4949 100%);
+            opacity: 0.5;
             z-index: -1;
         "></div>
         <div class="title" style="display: flex; align-items: center; justify-content: center; gap: 10px;">
@@ -718,11 +825,11 @@ select:-webkit-autofill {
                             <button class="btn btn-pin" style="padding: 6px 0px;" onclick="performAction('open_tiktok_lite')">TikTok Lite</button>
                         </div>
                         <div class="btn-row">
-                            <button class="btn btn-vol_min" style="background: #130b2b; padding: 6px 0px; max-width: 50px;" onclick="performAction('vol_min')">🔈➖</button>
-                            <button class="btn btn-vol_plus" style="background: #130b2b; padding: 6px 0px; max-width: 50px;" onclick="performAction('vol_plus')"> 🔊➕</button>
-                            <button class="btn" style="padding: 6px 0px;" onclick="performAction('back')">Назад</button>
-                            <button class="btn" style="padding: 6px 0px;" onclick="performAction('home')">Домой</button>
-                            <button class="btn" style="padding: 6px 0px;" onclick="performAction('recent')">Задачи</button>
+                            <button class="btn btn-vol_min" style="background: #130b2b; height: 24px; padding: 0; max-width: 50px;" onclick="performAction('vol_min')">🔈➖</button>
+                            <button class="btn btn-vol_plus" style="background: #130b2b; height: 24px; padding: 0; max-width: 50px;" onclick="performAction('vol_plus')"> 🔊➕</button>
+                            <button class="btn" style="height: 24px; padding: 0;" onclick="performAction('back')">Назад</button>
+                            <button class="btn" style="height: 24px; padding: 0;" onclick="performAction('home')">Домой</button>
+                            <button class="btn" style="height: 24px; padding: 0;" onclick="performAction('recent')">Задачи</button>
                         </div>
                         <div class="btn-row">
                             <button id="restartScrcpyBtn" class="btn btn-restart">Перезапустить scrcpy</button>
@@ -731,75 +838,64 @@ select:-webkit-autofill {
                 </div>
             </div>
 
+            <style>
+                /* 1. Краткий метод: оборачиваем каждый символ в span */
+                .fixed-symbol {
+                    display: inline-block;    /* Чтобы фон был ровно под размер символа */
+                    font-size: 13px;          /* Принудительный размер */
+                    width: 13px;              /* Фикс ширина */
+                    height: 13px;             /* Фикс высота */
+                    line-height: 13px;        /* Вертикальное выравнивание текста */
+                    text-align: center;       /* Горизонтальное выравнивание */
+                    background-color: red;    /* Красный фон */
+                    color: white;             /* Цвет символа (для контраста, опционально) */
+                    /* Бонус: скругление углов */
+                    border-radius: 2px;
+                }
+            </style>
+
             <!-- Вкладка настроек -->
             <div id="settings" class="tab-content">
                 <div id="control-box">
                     <div class="section-title">Настройка координат</div>
                     <div id="control-box-btn">
                         <div class="input-group">
-                            <button class="btn btn-pause" style="
-                                background-color: #222222;
-                                margin: 0; 
-                                margin-right: 10px; 
-                                width: 44.69px; 
-                                height: 27px; 
-                                display: flex; 
-                                padding: 0; 
-                                justify-content: space-around; 
-                                align-items: center;
-                            " onclick="performAction('pause')">⏯️</button>
-                            <label style="color: var(--pause-color);">Пауза [X/Y]:</label>
-                            <input placeholder="X" type="text" id="pause_x" value="{{ pause_coords[0] }}">
-                            <input placeholder="Y" type="text" id="pause_y" value="{{ pause_coords[1] }}">
-                        </div>
-    <style>
-        /* 1. Краткий метод: оборачиваем каждый символ в span */
-        .fixed-symbol {
-            display: inline-block;    /* Чтобы фон был ровно под размер символа */
-            font-size: 13px;          /* Принудительный размер */
-            width: 13px;              /* Фикс ширина */
-            height: 13px;             /* Фикс высота */
-            line-height: 13px;        /* Вертикальное выравнивание текста */
-            text-align: center;       /* Горизонтальное выравнивание */
-            background-color: red;    /* Красный фон */
-            color: white;             /* Цвет символа (для контраста, опционально) */
-            /* Бонус: скругление углов */
-            border-radius: 2px;
-        }
-    </style>
-                        <div class="input-group">
-                            <button class="btn btn-pause" style="
-                                background-color: #222222;
-                                margin: 0; 
-                                margin-right: 10px; 
-                                width: 44.69px; 
-                                height: 27px; 
-                                display: flex; 
-                                padding: 0; 
-                                justify-content: space-around; 
-                                align-items: center;
-                            " onclick="performAction('like')">❤️</button>
-                            <label style="color: var(--like-color);">Лайк [X/Y]:</label>
-                            <input placeholder="X" type="text" id="like_x" value="{{ like_coords[0] }}">
-                            <input placeholder="Y" type="text" id="like_y" value="{{ like_coords[1] }}">
+                            <div>
+                                <button class="btn btn-pause" style="background-color: #222222; margin: 0; margin-right: 10px; width: 44.69px; height: 27px; display: flex; padding: 0; justify-content: space-around; align-items: center;" onclick="performAction('pause')"
+                                >⏯️</button>
+                                <label style="color: var(--pause-color);">Пауза [X/Y]:</label>
+                            </div>
+                            <div>
+                                <input placeholder="X" type="text" id="pause_x" value="{{ pause_coords[0] }}">
+                                <input placeholder="Y" type="text" id="pause_y" value="{{ pause_coords[1] }}">
+                            </div>
                         </div>
                         <div class="input-group">
-                            <button class="btn btn-pause" style="
-                                background-color: #222222;
-                                margin: 0; 
-                                margin-right: 10px; 
-                                width: 44.69px; 
-                                height: 27px; 
-                                display: flex; 
-                                padding: 0; 
-                                justify-content: space-around; 
-                                align-items: center;
-                            " onclick="performAction('pin')">⭐</button>
-                            <label style="color: var(--pin-color);">Избранное [X/Y]:</label>
-                            <input placeholder="X" type="text" id="pin_x" value="{{ pin_coords[0] }}">
-                            <input placeholder="Y" type="text" id="pin_y" value="{{ pin_coords[1] }}">
+                            <div>
+                                <button class="btn btn-pause" style="background-color: #222222; margin: 0; margin-right: 10px; width: 44.69px; height: 27px; display: flex; padding: 0; justify-content: space-around; align-items: center;" onclick="performAction('like')"
+                                >❤️</button>
+                                <label style="color: var(--like-color);">Лайк [X/Y]:</label>
+                            </div>
+                            <div>
+                                <input placeholder="X" type="text" id="like_x" value="{{ like_coords[0] }}">
+                                <input placeholder="Y" type="text" id="like_y" value="{{ like_coords[1] }}">
+                            </div>
                         </div>
-                        <button class="btn btn-accent" style="margin-bottom: 10px;" onclick="saveCoords()">Сохранить координаты</button>
+                        <div class="input-group">
+                            <div>                                
+                                <button class="btn btn-pause" style="background-color: #222222; margin: 0; margin-right: 10px; width: 44.69px; height: 27px; display: flex; padding: 0; justify-content: space-around; align-items: center;" onclick="performAction('pin')"
+                                >⭐</button>
+                                <label style="color: var(--pin-color);">Избранное [X/Y]:</label>
+                            </div>
+                            <div>
+                                <input placeholder="X" type="text" id="pin_x" value="{{ pin_coords[0] }}">
+                                <input placeholder="Y" type="text" id="pin_y" value="{{ pin_coords[1] }}">
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 2px; margin-bottom: 10px;">
+                            <button class="btn btn-accent" style="flex: 1;" onclick="saveCoords()">Сохранить</button>
+                            <button class="btn btn-danger" style="flex: 1;" onclick="resetCoords()">Отменить</button>
+                        </div>
                     </div>
                 </div>
 
@@ -839,6 +935,25 @@ select:-webkit-autofill {
             input.addEventListener('change', onCoordinatesInput);
         });
 
+        // Стрелки на клавиатуре внутри поля координат:
+        // вверх — +1, вниз — -1 (препятствуем прокрутке страницы).
+        // Вешаем НА document в фазе capture, чтобы перехват не терялся.
+        document.addEventListener('keydown', function(e) {
+            const isCoordField = Object.values(inputs).some(inp => document.activeElement === inp);
+            if (!isCoordField) return;
+            const up = (e.key === 'ArrowUp' || e.code === 'ArrowUp');
+            const down = (e.key === 'ArrowDown' || e.code === 'ArrowDown');
+            if (!up && !down) return;
+            e.preventDefault();
+            const input = document.activeElement;
+            const step = up ? 1 : -1;
+            const cur = parseInt(input.value, 10);
+            if (!isNaN(cur)) {
+                input.value = cur + step;
+                onCoordinatesInput();
+            }
+        }, true);
+
         // Отправка preview координат на сервер при вводе, до сохранения
         let previewTimer = null;
         function onCoordinatesInput() {
@@ -864,11 +979,11 @@ select:-webkit-autofill {
                 <div id="control-box">
                     <div class="section-title">Настройки подключения</div>
                     <div id="control-box-btn">
-                        <div class="input-group" style="padding-left: 10px; justify-content: space-between; margin-bottom: 5px;">
+                        <div class="input-group" style="padding-left: 10px; justify-content: space-between;">
                             <label>FPS частота кадров:</label>
                             <input placeholder="60" type="text" id="scrcpy_fps" value="{{ scrcpy_fps }}" style="flex: 1;">
                         </div>
-                        <div class="input-group" style="padding-left: 10px; justify-content: space-between; margin-bottom: 5px;">
+                        <div class="input-group" style="padding-left: 10px; justify-content: space-between;">
                             <label>Аппаратное декодирование:</label>
                             <select id="scrcpy_hwdec" style="flex: 1; background-color: var(--frame-bg); color: var(--text-color); border: 1px solid var(--highlight); padding: 5px; font-size: 12px;">
                                 <option value="auto" {% if scrcpy_hwdec == 'auto' %}selected{% endif %}>Авто</option>
@@ -876,7 +991,7 @@ select:-webkit-autofill {
                                 <option value="d3d11va" {% if scrcpy_hwdec == 'd3d11va' %}selected{% endif %}>Вкл (d3d11va)</option>
                             </select>
                         </div>
-                        <div class="input-group" style="padding-left: 10px; justify-content: space-between; margin-bottom: 5px;">
+                        <div class="input-group" style="padding-left: 10px; justify-content: space-between;">
                             <label>Видеокодек:</label>
                             <select id="scrcpy_codec" style="flex: 1; background-color: var(--frame-bg); color: var(--text-color); border: 1px solid var(--highlight); padding: 5px; font-size: 12px;">
                                 <option value="h264" {% if scrcpy_codec == 'h264' %}selected{% endif %}>H.264 (по умолч.)</option>
@@ -886,19 +1001,19 @@ select:-webkit-autofill {
                                 <option value="vp9" {% if scrcpy_codec == 'vp9' %}selected{% endif %}>VP9</option>
                             </select>
                         </div>
-                        <div class="input-group" style="padding-left: 10px; justify-content: space-between; margin-bottom: 5px;">
+                        <div class="input-group" style="padding-left: 10px; justify-content: space-between;">
                             <label>Битрейт (бит/с):</label>
                             <input placeholder="2M" type="text" id="scrcpy_bitrate" value="{{ scrcpy_bitrate }}" style="flex: 1;">
                         </div>
-                        <div class="input-group" style="padding-left: 10px; justify-content: space-between; margin-bottom: 5px;">
+                        <div class="input-group" style="padding-left: 10px; justify-content: space-between;">
                             <label>Видео-буфер (мс):</label>
                             <input placeholder="0" type="text" id="scrcpy_video_buffer" value="{{ scrcpy_video_buffer }}" style="flex: 1;">
                         </div>
-                        <div class="input-group" style="padding-left: 10px; justify-content: space-between; margin-bottom: 5px;">
+                        <div class="input-group" style="padding-left: 10px; justify-content: space-between;">
                             <label>Аудио-буфер (мс):</label>
                             <input placeholder="0" type="text" id="scrcpy_audio_buffer" value="{{ scrcpy_audio_buffer }}" style="flex: 1;">
                         </div>
-                        <div class="input-group" style="padding-left: 10px; justify-content: space-between; margin-bottom: 5px;">
+                        <div class="input-group" style="padding-left: 10px; justify-content: space-between;">
                             <label>Тип ADB подключения:</label>
                             <div class="toggle-switch">
                                 <input type="radio" id="connection_usb" name="connection_type" value="usb"
@@ -912,10 +1027,12 @@ select:-webkit-autofill {
                         </div>
                         <div class="input-group ip-block-box" style="padding-left: 10px;" {% if connection_type == 'usb' %}style="display:none;"{% endif %}>
                             <label>IP-адрес:</label>
-                            <input placeholder="192.168.1.100" type="text" id="adb_ip" style='width: 150px;' value="{{ adb_ip }}" style="flex: 1;">
-                            <input placeholder="5555" type="text" id="adb_port" value="{{ adb_port }}" style="flex: 1;">
+                            <div class="ip-sell">
+                                <input placeholder="192.168.1.100" type="text" id="adb_ip" style='width: 150px;' value="{{ adb_ip }}" style="flex: 1;">
+                                <input placeholder="5555" type="text" id="adb_port" value="{{ adb_port }}" style="flex: 1;">
+                            </div>
                         </div>
-                        <button class="btn btn-accent" style="margin-bottom: 10px;" onclick="saveConnectionSettings()">Сохранить настройки</button>
+                        <button class="btn btn-accent" style="margin-bottom: 5px;" onclick="saveConnectionSettings()">Сохранить настройки</button>
                     </div>
                 </div>
             </div>
@@ -927,10 +1044,11 @@ select:-webkit-autofill {
                         .hotkey-key{
                             width: 130px;
                             font-family: 'Unbounded', 'Segoe UI emoji';
-                            font-size: 12px;
+                            font-size: 10px;
                             font-weight: 400;
-                            padding: 5px;
-                            background-color: var(--frame-bg);
+                            padding: 0 5px;
+                            height: 22px;
+                            background-color: #000000;
                             border: 1px solid var(--highlight);
                             color: var(--text-color);
                             margin-right: 0px;
@@ -950,9 +1068,9 @@ select:-webkit-autofill {
                             display: flex;
                             align-items: center;
                         }
-                        .hotkey-item:hover{
+                        /* .hotkey-item:hover{
                             background: unset;
-                        }
+                        } */
                         .keylist{
                             flex-direction: column;
                             display: flex;
@@ -963,26 +1081,26 @@ select:-webkit-autofill {
                         }
                     </style>
                     <div class="section-title">Горячие клавиши</div>
-                    <div id="control-box-btn" class="keylist" style="margin-bottom: 10px;">
-                        <div class="hotkey-item" onclick="startHotkeyChange('pause')">
+                    <div id="control-box-btn" class="keylist" style="margin-bottom: 5px;">
+                        <div class="hotkey-item" >
                             <div class="hotkey-desc">Пауза/плей:</div>
-                            <div class="hotkey-key" id="hotkey-pause">{{hotkeys.pause}}</div>
+                            <div class="hotkey-key" onclick="startHotkeyChange('pause')" id="hotkey-pause">{{hotkeys.pause}}</div>
                         </div>
-                        <div class="hotkey-item" onclick="startHotkeyChange('like')">
+                        <div class="hotkey-item">
                             <div class="hotkey-desc">Лайк:</div>
-                            <div class="hotkey-key" id="hotkey-like">{{hotkeys.like}}</div>
+                            <div class="hotkey-key" onclick="startHotkeyChange('like')" id="hotkey-like">{{hotkeys.like}}</div>
                         </div>
-                        <div class="hotkey-item" onclick="startHotkeyChange('pin')">
+                        <div class="hotkey-item">
                             <div class="hotkey-desc">Избранное:</div>
-                            <div class="hotkey-key" id="hotkey-pin">{{hotkeys.pin}}</div>
+                            <div class="hotkey-key" onclick="startHotkeyChange('pin')" id="hotkey-pin">{{hotkeys.pin}}</div>
                         </div>
-                        <div class="hotkey-item" onclick="startHotkeyChange('scroll_up')">
+                        <div class="hotkey-item">
                             <div class="hotkey-desc">Следующее видео:</div>
-                            <div class="hotkey-key" id="hotkey-scroll-up">{{hotkeys.scroll_up}}</div>
+                            <div class="hotkey-key" onclick="startHotkeyChange('scroll_up')" id="hotkey-scroll-up">{{hotkeys.scroll_up}}</div>
                         </div>
-                        <div class="hotkey-item" onclick="startHotkeyChange('scroll_down')">
+                        <div class="hotkey-item">
                             <div class="hotkey-desc">Предыдущее видео:</div>
-                            <div class="hotkey-key" id="hotkey-scroll-down">{{hotkeys.scroll_down}}</div>
+                            <div class="hotkey-key" onclick="startHotkeyChange('scroll_down')" id="hotkey-scroll-down">{{hotkeys.scroll_down}}</div>
                         </div>
                     </div>
                 </div>
@@ -990,7 +1108,7 @@ select:-webkit-autofill {
                 <div id="control-box">
                     <div class="section-title">Как использовать?</div>
                     <div id="control-box-btn">
-                        <div style="font-size: 12px; margin-bottom: 10px;">
+                        <div style="font-size: 12px; margin-bottom: 5px;">
                             1. Убедитесь, что scrcpy запущен<br>
                             2. Переключитесь на окно scrcpy<br>
                             3. Используйте горячие клавиши для управления
@@ -1000,16 +1118,24 @@ select:-webkit-autofill {
 </div>
     </div>
         <!-- Логи действий -->
-        <div class="log-container">
+        <div class="log-containerB">
             <div class="log-title">Логи действий</div>
-            <div id="log-entries">
-                {% for log in logs %}
-                <div class="log-entry">
-                    <span class="log-timestamp">[{{log.timestamp}}]</span>
-                    <span class="log-{{ log.tag }}">{{log.message}}</span>
+            <div class="log-container">
+                <div id="log-entries">
+                    {% for log in logs %}
+                    <div class="log-entry">
+                        <span class="log-timestamp">[{{log.timestamp}}]</span>
+                        <span class="log-{{ log.tag }}">{{log.message}}</span>
+                    </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
             </div>
+            <button id="log-autoscroll-btn" class="log-autoscroll-btn on" title="Автопрокрутка вниз">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="4 3 8 7 12 3" />
+                    <polyline points="4 9 8 13 12 9" />
+                </svg>
+            </button>
         </div>
     </div>
     <script>
@@ -1185,9 +1311,83 @@ select:-webkit-autofill {
         updateLogs(data.logs);
     }
 
+    // Отмена несохранённых изменений координат
+    async function resetCoords() {
+        const response = await fetch('/reset_coords', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({}),
+        });
+        const data = await response.json();
+        if (data.success) {
+            if (data.pause) {
+                inputs.pause_x.value = data.pause[0];
+                inputs.pause_y.value = data.pause[1];
+            }
+            if (data.like) {
+                inputs.like_x.value = data.like[0];
+                inputs.like_y.value = data.like[1];
+            }
+            if (data.pin) {
+                inputs.pin_x.value = data.pin[0];
+                inputs.pin_y.value = data.pin[1];
+            }
+            updateCSSVariables();
+        }
+    }
+
     // Обновление логов
+    let autoScrollEnabled = true;
+    const logContainer = document.getElementById('log-entries');
+    const logScrollBox = logContainer.closest('.log-container');
+    const autoScrollBtn = document.getElementById('log-autoscroll-btn');
+
+    function updateAutoScrollBtn() {
+        if (autoScrollBtn) {
+            autoScrollBtn.classList.toggle('on', autoScrollEnabled);
+            autoScrollBtn.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="4 3 8 7 12 3" />
+                    <polyline points="4 9 8 13 12 9" />
+                </svg>
+            `;
+        }
+    }
+
+    // Включить/выключить автопрокрутку
+    function setAutoScroll(enabled) {
+        autoScrollEnabled = enabled;
+        if (autoScrollEnabled) {
+            logScrollBox.scrollTop = logScrollBox.scrollHeight;
+        }
+        updateAutoScrollBtn();
+    }
+
+    // Событие прокрутки: вверх - выключить, вниз - включить
+    if (logScrollBox) {
+        logScrollBox.addEventListener('scroll', () => {
+            const maxScroll = logScrollBox.scrollHeight - logScrollBox.clientHeight;
+            if (maxScroll <= 0) return;
+            if (logScrollBox.scrollTop < maxScroll - 5) {
+                if (autoScrollEnabled) setAutoScroll(false);
+            } else {
+                if (!autoScrollEnabled) setAutoScroll(true);
+            }
+        });
+
+        if (autoScrollBtn) {
+            autoScrollBtn.addEventListener('click', () => {
+                setAutoScroll(!autoScrollEnabled);
+            });
+        }
+    }
+
     function updateLogs(logs) {
-        const logContainer = document.getElementById('log-entries');
+        const prevScrollTop = logScrollBox ? logScrollBox.scrollTop : 0;
+        // Не перерисовываем весь список, если содержимое не изменилось —
+        // иначе каждую секунду (опрос /get_logs) пересоздаётся весь DOM.
+        if (window.__logCount === logs.length) return;
+        window.__logCount = logs.length;
         logContainer.innerHTML = '';
 
         logs.forEach(log => {
@@ -1207,15 +1407,54 @@ select:-webkit-autofill {
             logContainer.appendChild(logEntry);
         });
 
-        logContainer.scrollTop = logContainer.scrollHeight;
+        if (autoScrollEnabled) {
+            logScrollBox.scrollTop = logScrollBox.scrollHeight;
+        } else if (logScrollBox) {
+            logScrollBox.scrollTop = prevScrollTop;
+        }
     }
 
     // Периодическое обновление логов
     setInterval(async () => {
-        const response = await fetch('/get_logs');
-        const data = await response.json();
-        updateLogs(data.logs);
-    }, 1000);
+        try {
+            const response = await fetch('/get_logs');
+            const data = await response.json();
+            if (window.__logCount !== (data.logs ? data.logs.length : 0)) {
+                updateLogs(data.logs);
+            }
+        } catch (e) { /* сеть недоступна — пропускаем */ }
+    }, 250);
+
+    // Автоматический подхват координат при смене устройства.
+    // Поля обновляем только если пользователь их сейчас не редактирует —
+    // иначе его правки затираются чужими значениями.
+    let __coordFieldsFocused = false;
+    let __lastDeviceSerial = null;
+    async function syncCoordsFromServer() {
+        try {
+            const resp = await fetch('/get_coords');
+            const data = await resp.json();
+            const serialChanged = data.device_serial !== __lastDeviceSerial;
+            __lastDeviceSerial = data.device_serial;
+            if (!serialChanged || __coordFieldsFocused) return;
+            // устройство сменилось — обновляем поля значениями под новое устройство
+            inputs.pause_x.value = data.pause[0];
+            inputs.pause_y.value = data.pause[1];
+            inputs.like_x.value = data.like[0];
+            inputs.like_y.value = data.like[1];
+            inputs.pin_x.value = data.pin[0];
+            inputs.pin_y.value = data.pin[1];
+            updateCSSVariables();
+        } catch (e) { /* пропускаем */ }
+    }
+
+    // При фокусе/редактировании полей не трогаем их значения
+    Object.values(inputs).forEach(input => {
+        input.addEventListener('focus', () => { __coordFieldsFocused = true; });
+        input.addEventListener('blur', () => { __coordFieldsFocused = false; });
+    });
+
+    setInterval(syncCoordsFromServer, 1000);
 
     // Инициализация при загрузке
     document.addEventListener('DOMContentLoaded', function() {
@@ -1309,7 +1548,11 @@ select:-webkit-autofill {
 
         const data = await response.json();
         if (data.success) {
-            document.getElementById(`hotkey-${action}`).textContent = key;
+            const idMap = { 'scroll_up': 'scroll-up', 'scroll_down': 'scroll-down' };
+            const el = document.getElementById(`hotkey-${idMap[action] || action}`);
+            if (el) {
+                el.textContent = key;
+            }
         }
         updateLogs(data.logs);
     }
