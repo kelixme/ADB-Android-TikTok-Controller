@@ -10,7 +10,7 @@ import time
 import queue
 from ctypes import wintypes
 
-APP_VERSION = "3.1"
+APP_VERSION = "3.2"
 
 # --- Защита от множественного запуска (single instance) ---
 # Именованный мьютекс уровня сессии: второй экземпляр видит ERROR_ALREADY_EXISTS
@@ -348,6 +348,168 @@ def move_resize_window(hwnd, left, top, width, height):
         return False
 
 
+# --- Громкость аудиосессии процесса (WASAPI Core Audio, только ctypes) ---
+# Системный режим — ADB-кнопки громкости Android (как раньше).
+# Программный режим — громкость микшера Windows для конкретной сессии,
+# то есть только для нашего scrcpy.exe (по PID), без изменения громкости
+# других приложений и без команд на устройство.
+COINIT_APARTMENTTHREADED = 0x2
+RPC_E_CHANGED_MODE = -2147417850
+CLSCTX_ALL = 0x17
+AUDIO_E_RENDER = 0
+AUDIO_E_CONSOLE = 0
+
+CLSID_MMDeviceEnumerator = "{BCDE0395-E52F-467C-8E3D-C4579291692E}"
+IID_IMMDeviceEnumerator = "{A95664D2-9614-4F35-A746-DE8DB63617E6}"
+IID_IAudioSessionManager2 = "{77AA99A0-1BD6-484F-8BC7-2C654C9A9B6F}"
+IID_IAudioSessionControl2 = "{bfb7ff88-7239-4fc9-8fa2-07c950be9c6d}"
+IID_ISimpleAudioVolume = "{87CE5498-68D6-44E5-9215-6DA47EF883D8}"
+
+
+class GUID(ctypes.Structure):
+    _fields_ = [("Data1", ctypes.c_uint32),
+                ("Data2", ctypes.c_uint16),
+                ("Data3", ctypes.c_uint16),
+                ("Data4", ctypes.c_ubyte * 8)]
+
+
+def _guid(text):
+    """GUID из строки вида {XXXX-...} через CLSIDFromString."""
+    g = GUID()
+    ole32 = ctypes.windll.ole32
+    ole32.CLSIDFromString.argtypes = [ctypes.c_wchar_p, ctypes.POINTER(GUID)]
+    ole32.CLSIDFromString.restype = ctypes.c_long
+    if ole32.CLSIDFromString(text, ctypes.byref(g)) != 0:
+        raise OSError(f"CLSIDFromString: {text}")
+    return g
+
+
+def _com_call(iface, index, argtypes=(), restype=ctypes.c_long):
+    """Метод COM-интерфейса по индексу в vtable: _com_call(ptr, i, (...))(...).
+    Первым аргументом в vtable идёт this — подставляем его сами."""
+    vtable = ctypes.cast(iface, ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p))).contents
+    proto = ctypes.WINFUNCTYPE(restype, ctypes.c_void_p, *argtypes)(vtable[index])
+    return lambda *args: proto(iface, *args)
+
+
+
+def _com_release(iface):
+    """Release() COM-интерфейса, если он получен."""
+    if not iface:
+        return
+    try:
+        _com_call(iface, 2, ())()
+    except Exception:
+        pass
+
+
+def set_process_volume(pid, percent):
+    """Громкость аудиосессии процесса pid (0–100), только Windows.
+    Возвращает True, если сессия процесса найдена и громкость выставлена."""
+    if sys.platform != "win32" or not pid:
+        return False
+    try:
+        level = max(0.0, min(1.0, float(percent) / 100.0))
+    except (TypeError, ValueError):
+        return False
+
+    ole32 = ctypes.windll.ole32
+    ole32.CoInitializeEx.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+    ole32.CoInitializeEx.restype = ctypes.c_long
+    ole32.CoCreateInstance.argtypes = [ctypes.POINTER(GUID), ctypes.c_void_p,
+                                       ctypes.c_uint32, ctypes.POINTER(GUID),
+                                       ctypes.POINTER(ctypes.c_void_p)]
+    ole32.CoCreateInstance.restype = ctypes.c_long
+    ole32.CoUninitialize.argtypes = []
+    ole32.CoUninitialize.restype = None
+
+    hr = ole32.CoInitializeEx(None, COINIT_APARTMENTTHREADED)
+    own_init = hr >= 0
+    if not own_init and hr != RPC_E_CHANGED_MODE:
+        return False
+
+    enumerator = ctypes.c_void_p()
+    device = ctypes.c_void_p()
+    manager = ctypes.c_void_p()
+    sessions = ctypes.c_void_p()
+    try:
+        clsid = _guid(CLSID_MMDeviceEnumerator)
+        iid_enumerator = _guid(IID_IMMDeviceEnumerator)
+        if ole32.CoCreateInstance(ctypes.byref(clsid), None, CLSCTX_ALL,
+                                  ctypes.byref(iid_enumerator),
+                                  ctypes.byref(enumerator)) < 0 or not enumerator:
+            return False
+
+        if _com_call(enumerator, 4, (ctypes.c_int, ctypes.c_int,
+                                     ctypes.POINTER(ctypes.c_void_p)),
+                     )(AUDIO_E_RENDER, AUDIO_E_CONSOLE,
+                       ctypes.byref(device)) < 0 or not device:
+            return False
+
+        iid_manager = _guid(IID_IAudioSessionManager2)
+        if _com_call(device, 3, (ctypes.POINTER(GUID), ctypes.c_uint32,
+                                 ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p)),
+                     )(ctypes.byref(iid_manager), CLSCTX_ALL, None,
+                       ctypes.byref(manager)) < 0 or not manager:
+            return False
+
+        if _com_call(manager, 5, (ctypes.POINTER(ctypes.c_void_p),),
+                     )(ctypes.byref(sessions)) < 0 or not sessions:
+            return False
+
+        count = ctypes.c_int()
+        if _com_call(sessions, 3, (ctypes.POINTER(ctypes.c_int),),
+                     )(ctypes.byref(count)) < 0:
+            return False
+
+        iid_control2 = _guid(IID_IAudioSessionControl2)
+        iid_volume = _guid(IID_ISimpleAudioVolume)
+
+        for index in range(count.value):
+            session = ctypes.c_void_p()
+            if _com_call(sessions, 4, (ctypes.c_int, ctypes.POINTER(ctypes.c_void_p)),
+                         )(index, ctypes.byref(session)) < 0 or not session:
+                continue
+            control2 = ctypes.c_void_p()
+            sess_volume = ctypes.c_void_p()
+            try:
+                if _com_call(session, 0, (ctypes.POINTER(GUID),
+                                          ctypes.POINTER(ctypes.c_void_p)),
+                             )(ctypes.byref(iid_control2),
+                               ctypes.byref(control2)) < 0 or not control2:
+                    continue
+                session_pid = ctypes.c_uint32()
+                if _com_call(control2, 14, (ctypes.POINTER(ctypes.c_uint32),),
+                             )(ctypes.byref(session_pid)) < 0:
+                    continue
+                if session_pid.value != int(pid):
+                    continue
+                if _com_call(session, 0, (ctypes.POINTER(GUID),
+                                          ctypes.POINTER(ctypes.c_void_p)),
+                             )(ctypes.byref(iid_volume),
+                               ctypes.byref(sess_volume)) < 0 or not sess_volume:
+                    continue
+                if _com_call(sess_volume, 3, (ctypes.c_float, ctypes.c_void_p),
+                             )(ctypes.c_float(level), None) < 0:
+                    continue
+                return True
+            finally:
+                _com_release(sess_volume)
+                _com_release(control2)
+                _com_release(session)
+        return False
+    except Exception:
+        return False
+    finally:
+        _com_release(sessions)
+        _com_release(manager)
+        _com_release(device)
+        _com_release(enumerator)
+        if own_init:
+            ole32.CoUninitialize()
+
+
+
 class ScrcpyDocker:
     """Размещает окно scrcpy при его появлении: сразу справа от главного окна,
     с той же высотой, ширина — по реальному соотношению сторон устройства.
@@ -548,7 +710,7 @@ class MarkerOverlay:
 
         # Плашки scroll_up/scroll_down — без изменений
         if name in self.SCROLL_MARKERS:
-            font = ('Consolas', 12, 'bold')
+            font = ('Consolas', 10, 'bold')
             text_w = int(tkfont.Font(font=font).measure(label))
             win_w = text_w + 10
             win_h = 18
@@ -1061,6 +1223,7 @@ class AndroidController:
         self.scrcpy_fps = "60"
         self.scrcpy_hwdec = "auto"
         self.scrcpy_codec = "h264"
+        self.scrcpy_audio_codec = "opus"
         self.scrcpy_bitrate = ""
         self.scrcpy_video_buffer = ""
         self.scrcpy_audio_buffer = ""
@@ -1070,6 +1233,12 @@ class AndroidController:
         self.device_serial = None
         self.device_name = None
         self._device_monitor_active = False
+        # Метод управления громкостью: "system" — кнопки громкости Android
+        # через ADB, "program" — микшер Windows только для scrcpy.exe (по PID).
+        self.volume_mode = "system"
+        self.program_volume = 100
+        self._volume_applied_pid = None
+        self._volume_watcher_active = True
         self.hotkeys = {
             'pause': 'num 0',
             'like': 'num 5',
@@ -1080,6 +1249,7 @@ class AndroidController:
  
         self.load_hotkeys()
         self.load_connection_settings()
+        self.load_volume_settings()
         self.detect_device_serial()
         self.load_coords()
         self.start_scrcpy()
@@ -1094,6 +1264,7 @@ class AndroidController:
         self.start_keyboard_listener()
         self.start_scrcpy_output_thread()
         self.start_device_monitor()
+        self.start_volume_watcher()
 
     def load_hotkeys(self):
         try:
@@ -1252,6 +1423,7 @@ class AndroidController:
                     self.scrcpy_fps = config.get("scrcpy_fps", "60")
                     self.scrcpy_hwdec = config.get("scrcpy_hwdec", "auto")
                     self.scrcpy_codec = config.get("scrcpy_codec", "h264")
+                    self.scrcpy_audio_codec = config.get("scrcpy_audio_codec", "opus")
                     self.scrcpy_bitrate = config.get("scrcpy_bitrate", "")
                     self.scrcpy_video_buffer = config.get("scrcpy_video_buffer", "")
                     self.scrcpy_audio_buffer = config.get("scrcpy_audio_buffer", "")
@@ -1275,7 +1447,7 @@ class AndroidController:
     def save_connection_settings(self, connection_type, adb_ip, adb_port, scrcpy_fps,
                                  scrcpy_hwdec=None, scrcpy_codec=None,
                                  scrcpy_bitrate=None, scrcpy_video_buffer=None,
-                                 scrcpy_audio_buffer=None):
+                                 scrcpy_audio_buffer=None, scrcpy_audio_codec=None):
         try:
             if connection_type == "wifi":
                 if not adb_ip or not adb_port:
@@ -1304,6 +1476,8 @@ class AndroidController:
                 self.scrcpy_video_buffer = str(scrcpy_video_buffer)
             if scrcpy_audio_buffer is not None:
                 self.scrcpy_audio_buffer = str(scrcpy_audio_buffer)
+            if scrcpy_audio_codec in ("opus", "aac", "flac", "raw"):
+                self.scrcpy_audio_codec = scrcpy_audio_codec
             
             config = {}
             if os.path.exists(self.config_file):
@@ -1319,7 +1493,8 @@ class AndroidController:
                 "scrcpy_codec": self.scrcpy_codec,
                 "scrcpy_bitrate": self.scrcpy_bitrate,
                 "scrcpy_video_buffer": self.scrcpy_video_buffer,
-                "scrcpy_audio_buffer": self.scrcpy_audio_buffer
+                "scrcpy_audio_buffer": self.scrcpy_audio_buffer,
+                "scrcpy_audio_codec": self.scrcpy_audio_codec
             })
             
             with open(self.config_file, 'w') as f:
@@ -1332,6 +1507,183 @@ class AndroidController:
         except Exception as e:
             self.log_message(f"❌ Ошибка сохранения настроек: {str(e)}", 'error')
             return False
+
+    @staticmethod
+    def _clean_ms(value, label):
+        """Проверяет значение буфера в миллисекундах: пусто или целое число."""
+        v = str(value if value is not None else "").strip()
+        if v and not v.isdigit():
+            raise ValueError(f"{label}: нужно целое число миллисекунд")
+        return v
+
+    def save_render_settings(self, section, values):
+        """Сохраняет настройки рендера ОТДЕЛЬНО по разделам, не трогая чужой:
+        'video' — FPS, декодирование, видеокодек, битрейт, видео-буфер;
+        'audio' — аудиокодек и аудио-буфер."""
+        try:
+            values = values or {}
+            if section == "video":
+                fps = str(values.get("scrcpy_fps") or "").strip()
+                if not fps.isdigit() or int(fps) <= 0:
+                    raise ValueError("FPS должен быть положительным целым числом")
+                hwdec = values.get("scrcpy_hwdec")
+                if hwdec not in ("auto", "disabled", "d3d11va"):
+                    raise ValueError("Неизвестный режим аппаратного декодирования")
+                codec = values.get("scrcpy_codec")
+                if codec not in ("h264", "h265", "av1", "vp8", "vp9"):
+                    raise ValueError("Неизвестный видеокодек")
+                bitrate = str(values.get("scrcpy_bitrate") or "").strip()
+                digits = bitrate[:-1] if bitrate[-1:].lower() in ("k", "m") else bitrate
+                if bitrate and not digits.isdigit():
+                    raise ValueError("Битрейт: число вида 2M, 500k или 8000000")
+                video_buffer = self._clean_ms(values.get("scrcpy_video_buffer"),
+                                              "Видео-буфер")
+
+                self.scrcpy_fps = fps
+                self.scrcpy_hwdec = hwdec
+                self.scrcpy_codec = codec
+                self.scrcpy_bitrate = bitrate
+                self.scrcpy_video_buffer = video_buffer
+                part = "видео"
+            elif section == "audio":
+                codec = values.get("scrcpy_audio_codec")
+                if codec not in ("opus", "aac", "flac", "raw"):
+                    raise ValueError("Неизвестный аудиокодек")
+                audio_buffer = self._clean_ms(values.get("scrcpy_audio_buffer"),
+                                              "Аудио-буфер")
+                mode = values.get("volume_mode", self.volume_mode)
+                if mode not in ("system", "program"):
+                    raise ValueError("Неизвестный метод управления громкостью")
+                # Режим громкости вступает в силу ТОЛЬКО после сохранения:
+                # он влияет на запуск scrcpy (--audio-source=playback).
+                mode_changed = (mode != self.volume_mode)
+
+                self.scrcpy_audio_codec = codec
+                self.scrcpy_audio_buffer = audio_buffer
+                if mode_changed:
+                    self.volume_mode = mode
+                    self._volume_applied_pid = None
+                part = "звука"
+            else:
+                raise ValueError("Неизвестный раздел настроек рендера")
+
+            config = {}
+            if os.path.exists(self.config_file):
+                with open(self.config_file, 'r') as f:
+                    config = json.load(f)
+            config.update({
+                "scrcpy_fps": self.scrcpy_fps,
+                "scrcpy_hwdec": self.scrcpy_hwdec,
+                "scrcpy_codec": self.scrcpy_codec,
+                "scrcpy_bitrate": self.scrcpy_bitrate,
+                "scrcpy_video_buffer": self.scrcpy_video_buffer,
+                "scrcpy_audio_codec": self.scrcpy_audio_codec,
+                "scrcpy_audio_buffer": self.scrcpy_audio_buffer,
+                "volume_mode": self.volume_mode,
+                "program_volume": self.program_volume,
+            })
+            with open(self.config_file, 'w') as f:
+                json.dump(config, f, indent=4)
+
+            self.log_message(f"✅ Настройки {part} сохранены!", 'success')
+            if section == "audio" and mode_changed:
+                if self.volume_mode == "program":
+                    self.log_message(
+                        f"🎚️ Громкость: программный режим ({self.program_volume}%)",
+                        'vol')
+                else:
+                    self.log_message(
+                        "🎚️ Громкость: системный режим (кнопки Android)", 'vol')
+            self.restart_scrcpy()
+            return True
+
+        except Exception as e:
+            self.log_message(f"❌ Ошибка сохранения настроек рендера: {str(e)}", 'error')
+            return False
+
+    # ---------- громкость: системный / программный режим ----------
+
+    def load_volume_settings(self):
+        try:
+            if os.path.exists(self.config_file):
+                with open(self.config_file, 'r') as f:
+                    config = json.load(f)
+                mode = config.get("volume_mode", "system")
+                self.volume_mode = mode if mode in ("system", "program") else "system"
+                try:
+                    volume = int(config.get("program_volume", 100))
+                except (TypeError, ValueError):
+                    volume = 100
+                self.program_volume = max(0, min(100, volume))
+        except Exception as e:
+            print(f"Ошибка загрузки настроек громкости: {e}")
+
+    def _save_volume_config(self):
+        """Пишет режим и громкость в config.json (сразу, без кнопки сохранения)."""
+        try:
+            config = {}
+            if os.path.exists(self.config_file):
+                with open(self.config_file, 'r') as f:
+                    config = json.load(f)
+            config["volume_mode"] = self.volume_mode
+            config["program_volume"] = self.program_volume
+            with open(self.config_file, 'w') as f:
+                json.dump(config, f, indent=4)
+            return True
+        except Exception as e:
+            print(f"Ошибка сохранения настроек громкости: {e}")
+            return False
+
+    def set_program_volume(self, percent, persist=True):
+        """Ставит громкость программного режима (0–100) и сразу применяет её
+        к аудиосессии scrcpy. persist=True — сохранить в config.json."""
+        try:
+            value = max(0, min(100, int(round(float(percent)))))
+        except (TypeError, ValueError):
+            return False
+
+        self.program_volume = value
+        if persist:
+            self._save_volume_config()
+
+        pid = self.scrcpy_pid
+        if self.volume_mode == "program" and pid:
+            if set_process_volume(pid, value):
+                self._volume_applied_pid = pid
+                return True
+            self._volume_applied_pid = None
+            return False
+        return True
+
+    def start_volume_watcher(self):
+        """Следит за PID scrcpy и задаёт громкость его новой аудиосессии:
+        в программном режиме — сохранённую, в системном (ADB) — 100%."""
+        t = threading.Thread(target=self._volume_watcher_loop, daemon=True)
+        t.start()
+
+    def _volume_watcher_loop(self):
+        failed = {}
+        while self._volume_watcher_active:
+            try:
+                pid = self.scrcpy_pid
+                if not pid:
+                    self._volume_applied_pid = None
+                    failed.clear()
+                elif self._volume_applied_pid != pid and failed.get(pid, 0) < 40:
+                    # Программный режим — сохранённая громкость, системный (ADB) —
+                    # всегда 100%, чтобы громкость scrcpy не осталась «зажатой»
+                    # с прошлого программного режима.
+                    target = (self.program_volume if self.volume_mode == "program"
+                              else 100)
+                    # Аудиосессия появляется не мгновенно — пробуем до 20 секунд.
+                    if set_process_volume(pid, target):
+                        self._volume_applied_pid = pid
+                        failed.pop(pid, None)
+                    else:
+                        failed[pid] = failed.get(pid, 0) + 1
+            except Exception:
+                pass
+            time.sleep(0.5)
 
     def load_coords(self):
         default_coords = {
@@ -1539,7 +1891,7 @@ class AndroidController:
         # ТОЛЬКО пока активно окно приложения. Если активно окно scrcpy —
         # бонды работают всегда.
         if active_is_scrcpy_or_app():
-            if self._app_window_active() and self.current_tab in ("hotkeys", "settings"):
+            if self._app_window_active() and self.current_tab in ("hotkeys", "settings", "render"):
                 return False
             actions = {
                 "pause": self.pause_action,
@@ -1835,7 +2187,20 @@ class AndroidController:
                 "--no-mouse-hover", "--keep-active", "--no-window-aspect-ratio-lock",
                 "--disable-screensaver", "--background-color=#000",
                 f"--hwdec={self.scrcpy_hwdec}",
-                f"--video-codec={self.scrcpy_codec}"]
+                f"--video-codec={self.scrcpy_codec}",
+                f"--audio-codec={self.scrcpy_audio_codec}"]
+        # Пустые значения не передаём — scrcpy применит собственные значения
+        # по умолчанию (битрейт 8M, буферы выключены).
+        if self.scrcpy_bitrate:
+            args.append(f"--video-bit-rate={self.scrcpy_bitrate}")
+        if self.scrcpy_video_buffer:
+            args.append(f"--video-buffer={self.scrcpy_video_buffer}")
+        if self.scrcpy_audio_buffer:
+            args.append(f"--audio-buffer={self.scrcpy_audio_buffer}")
+        # Программный режим громкости работает с аудиосессией scrcpy в микшере
+        # Windows, поэтому звук берём с воспроизведения устройства.
+        if self.volume_mode == "program":
+            args.append("--audio-source=playback")
         return args + list(extra)
 
     def start_scrcpy(self):
@@ -1897,6 +2262,7 @@ class AndroidController:
     def cleanup(self):
         self.keyboard_listener_active = False
         self._device_monitor_active = False
+        self._volume_watcher_active = False
         if hasattr(self, 'kb_hook') and self.kb_hook:
             try:
                 keyboard.unhook(self.kb_hook)
@@ -1967,6 +2333,9 @@ def index():
         scrcpy_bitrate=controller.scrcpy_bitrate,
         scrcpy_video_buffer=controller.scrcpy_video_buffer,
         scrcpy_audio_buffer=controller.scrcpy_audio_buffer,
+        scrcpy_audio_codec=controller.scrcpy_audio_codec,
+        volume_mode=controller.volume_mode,
+        program_volume=controller.program_volume,
         hotkeys=controller.hotkeys)
 
 @app.route('/tab_changed', methods=['POST'])
@@ -1996,7 +2365,13 @@ def handle_action():
             data.get('scrcpy_codec'), # type: ignore
             data.get('scrcpy_bitrate'), # type: ignore
             data.get('scrcpy_video_buffer'), # type: ignore
-            data.get('scrcpy_audio_buffer') # type: ignore
+            data.get('scrcpy_audio_buffer'), # type: ignore
+            data.get('scrcpy_audio_codec') # type: ignore
+        )
+    elif action == "save_render_settings":
+        success = controller.save_render_settings(
+            data.get('section'), # type: ignore
+            data
         )
     elif action == "save_coords":
         success = controller.save_coords(
@@ -2054,6 +2429,8 @@ def handle_action():
     return jsonify({
         'success': success,
         'logs': controller.log_messages,
+        'volume_mode': controller.volume_mode,
+        'program_volume': controller.program_volume,
         'scrcpy_running': controller.scrcpy_process and controller.scrcpy_process.poll() is None
     })
 
@@ -2118,6 +2495,19 @@ def serve_files(filename):
         return "File not found", 404
         
     return send_from_directory(base_directory, filename)
+
+@app.route('/set_volume', methods=['POST'])
+def set_volume():
+    """Громкость программного режима: сразу сохраняется в config.json
+    и применяется к аудиосессии scrcpy."""
+    data = request.json or {}
+    success = controller.set_program_volume(data.get('volume')) # type: ignore
+    return jsonify({
+        'success': success,
+        'mode': controller.volume_mode,
+        'volume': controller.program_volume,
+        'logs': controller.log_messages
+    })
 
 @app.route('/shutdown', methods=['POST'])
 def shutdown():

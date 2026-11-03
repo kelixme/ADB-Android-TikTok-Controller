@@ -637,7 +637,10 @@ html, body{
     justify-content: center;
     cursor: pointer;
     font-size: 12px;
-    z-index: 1;
+    /* текст подписей всегда выше «ползунка» переключателя — клик по тексту
+       переключает режим, а не попадает в декоративную плашку */
+    position: relative;
+    z-index: 2;
     transition: color 0.3s ease;
     color: var(--text-color-secondary);
 }
@@ -656,10 +659,82 @@ html, body{
     background-color: #222222;
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     border-radius: 0px;
+    /* декоративная плашка не должна перехватывать клики по подписям */
+    pointer-events: none;
 }
 
 #connection_wifi:checked ~ .toggle-slider {
     transform: translateX(100%);
+}
+
+#volume_program:checked ~ .toggle-slider {
+    transform: translateX(100%);
+}
+
+.volume-mode-switch {
+    width: 130px;
+}
+
+.volume-mode-switch .toggle-label {
+    font-size: 10px;
+}
+
+/* Ползунок громкости программного режима */
+.volume-row {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    height: 24px;
+}
+
+.volume-slider {
+    flex: 1;
+    height: 24px;
+    padding: 0 5px;
+    margin: 0;
+    background: var(--frame-bg);
+    cursor: pointer;
+}
+
+.volume-slider::-webkit-slider-runnable-track {
+    height: 4px;
+    background: linear-gradient(to right,
+        var(--accent-color) 0%,
+        var(--accent-color) var(--volume-pct, 0%),
+        #222222 var(--volume-pct, 0%),
+        #222222 100%);
+    border: none;
+}
+
+.volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 10px;
+    height: 10px;
+    margin-top: -3px;
+    background: var(--accent-color);
+    border: none;
+    border-radius: 0px;
+    cursor: pointer;
+}
+
+.volume-slider::-webkit-slider-thumb:hover {
+    background: #3cff95;
+}
+
+.volume-value {
+    font-family: 'Unbounded', 'Segoe UI emoji';
+    font-size: 10px;
+    color: var(--accent-color);
+    background: var(--frame-bg);
+    height: 24px;
+    width: 50px;
+    flex: 0 0 50px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
 }
 
 .hotkey-item {
@@ -800,6 +875,7 @@ html, body{
                 <button class="tab-btn active" data-tab="control">Управление</button>
                 <button class="tab-btn" data-tab="settings">Настройки</button>
                 <button class="tab-btn" data-tab="hotkeys">Клавиатура</button>
+                <button class="tab-btn" data-tab="render">Рендер</button>
             </div>
 
             <!-- Вкладка управления -->
@@ -825,11 +901,15 @@ html, body{
                             <button class="btn btn-pin" style="padding: 6px 0px;" onclick="performAction('open_tiktok_lite')">TikTok Lite</button>
                         </div>
                         <div class="btn-row">
-                            <button class="btn btn-vol_min" style="background: #130b2b; height: 24px; padding: 0; max-width: 50px;" onclick="performAction('vol_min')">🔈➖</button>
-                            <button class="btn btn-vol_plus" style="background: #130b2b; height: 24px; padding: 0; max-width: 50px;" onclick="performAction('vol_plus')"> 🔊➕</button>
+                            <button id="volMinBtn" class="btn btn-vol_min" style="background: #130b2b; height: 24px; padding: 0; max-width: 50px;{% if volume_mode == 'program' %} display: none;{% endif %}" onclick="performAction('vol_min')">🔈➖</button>
+                            <button id="volPlusBtn" class="btn btn-vol_plus" style="background: #130b2b; height: 24px; padding: 0; max-width: 50px;{% if volume_mode == 'program' %} display: none;{% endif %}" onclick="performAction('vol_plus')"> 🔊➕</button>
                             <button class="btn" style="height: 24px; padding: 0;" onclick="performAction('back')">Назад</button>
                             <button class="btn" style="height: 24px; padding: 0;" onclick="performAction('home')">Домой</button>
                             <button class="btn" style="height: 24px; padding: 0;" onclick="performAction('recent')">Задачи</button>
+                        </div>
+                        <div class="btn-row volume-row" id="volumeProgramRow" {% if volume_mode != 'program' %}style="display: none;"{% endif %}>
+                            <input type="range" id="volumeSlider" class="volume-slider" min="0" max="100" step="1" value="{{ program_volume }}" style="--volume-pct: {{ program_volume }}%;">
+                            <span id="volumeValue" class="volume-value">{{ program_volume }}%</span>
                         </div>
                         <div class="btn-row">
                             <button id="restartScrcpyBtn" class="btn btn-restart">Перезапустить scrcpy</button>
@@ -980,40 +1060,6 @@ html, body{
                     <div class="section-title">Настройки подключения</div>
                     <div id="control-box-btn">
                         <div class="input-group" style="padding-left: 10px; justify-content: space-between;">
-                            <label>FPS частота кадров:</label>
-                            <input placeholder="60" type="text" id="scrcpy_fps" value="{{ scrcpy_fps }}" style="flex: 1;">
-                        </div>
-                        <div class="input-group" style="padding-left: 10px; justify-content: space-between;">
-                            <label>Аппаратное декодирование:</label>
-                            <select id="scrcpy_hwdec" style="flex: 1; background-color: var(--frame-bg); color: var(--text-color); border: 1px solid var(--highlight); padding: 5px; font-size: 12px;">
-                                <option value="auto" {% if scrcpy_hwdec == 'auto' %}selected{% endif %}>Авто</option>
-                                <option value="disabled" {% if scrcpy_hwdec == 'disabled' %}selected{% endif %}>Выкл</option>
-                                <option value="d3d11va" {% if scrcpy_hwdec == 'd3d11va' %}selected{% endif %}>Вкл (d3d11va)</option>
-                            </select>
-                        </div>
-                        <div class="input-group" style="padding-left: 10px; justify-content: space-between;">
-                            <label>Видеокодек:</label>
-                            <select id="scrcpy_codec" style="flex: 1; background-color: var(--frame-bg); color: var(--text-color); border: 1px solid var(--highlight); padding: 5px; font-size: 12px;">
-                                <option value="h264" {% if scrcpy_codec == 'h264' %}selected{% endif %}>H.264 (по умолч.)</option>
-                                <option value="h265" {% if scrcpy_codec == 'h265' %}selected{% endif %}>H.265</option>
-                                <option value="av1" {% if scrcpy_codec == 'av1' %}selected{% endif %}>AV1</option>
-                                <option value="vp8" {% if scrcpy_codec == 'vp8' %}selected{% endif %}>VP8</option>
-                                <option value="vp9" {% if scrcpy_codec == 'vp9' %}selected{% endif %}>VP9</option>
-                            </select>
-                        </div>
-                        <div class="input-group" style="padding-left: 10px; justify-content: space-between;">
-                            <label>Битрейт (бит/с):</label>
-                            <input placeholder="2M" type="text" id="scrcpy_bitrate" value="{{ scrcpy_bitrate }}" style="flex: 1;">
-                        </div>
-                        <div class="input-group" style="padding-left: 10px; justify-content: space-between;">
-                            <label>Видео-буфер (мс):</label>
-                            <input placeholder="0" type="text" id="scrcpy_video_buffer" value="{{ scrcpy_video_buffer }}" style="flex: 1;">
-                        </div>
-                        <div class="input-group" style="padding-left: 10px; justify-content: space-between;">
-                            <label>Аудио-буфер (мс):</label>
-                            <input placeholder="0" type="text" id="scrcpy_audio_buffer" value="{{ scrcpy_audio_buffer }}" style="flex: 1;">
-                        </div>
-                        <div class="input-group" style="padding-left: 10px; justify-content: space-between;">
                             <label>Тип ADB подключения:</label>
                             <div class="toggle-switch">
                                 <input type="radio" id="connection_usb" name="connection_type" value="usb"
@@ -1116,6 +1162,83 @@ html, body{
                     </div>
                 </div>
 </div>
+
+            <!-- Вкладка рендера -->
+            <div id="render" class="tab-content">
+                <div id="control-box">
+                    <div class="section-title">Видео</div>
+                    <div id="control-box-btn">
+                        <div class="input-group" style="padding-left: 10px; justify-content: space-between;">
+                            <label>FPS частота кадров:</label>
+                            <input placeholder="60" type="text" id="scrcpy_fps" value="{{ scrcpy_fps }}" style="flex: 1;">
+                        </div>
+                        <div class="input-group" style="padding-left: 10px; justify-content: space-between;">
+                            <label>Аппаратное декодирование:</label>
+                            <select id="scrcpy_hwdec" style="flex: 1; background-color: var(--frame-bg); color: var(--text-color); border: 1px solid var(--highlight); padding: 5px; font-size: 12px;">
+                                <option value="auto" {% if scrcpy_hwdec == 'auto' %}selected{% endif %}>Авто</option>
+                                <option value="disabled" {% if scrcpy_hwdec == 'disabled' %}selected{% endif %}>Выкл</option>
+                                <option value="d3d11va" {% if scrcpy_hwdec == 'd3d11va' %}selected{% endif %}>Вкл (d3d11va)</option>
+                            </select>
+                        </div>
+                        <div class="input-group" style="padding-left: 10px; justify-content: space-between;">
+                            <label>Видеокодек:</label>
+                            <select id="scrcpy_codec" style="flex: 1; background-color: var(--frame-bg); color: var(--text-color); border: 1px solid var(--highlight); padding: 5px; font-size: 12px;">
+                                <option value="h264" {% if scrcpy_codec == 'h264' %}selected{% endif %}>H.264 (по умолч.)</option>
+                                <option value="h265" {% if scrcpy_codec == 'h265' %}selected{% endif %}>H.265</option>
+                                <option value="av1" {% if scrcpy_codec == 'av1' %}selected{% endif %}>AV1</option>
+                                <option value="vp8" {% if scrcpy_codec == 'vp8' %}selected{% endif %}>VP8</option>
+                                <option value="vp9" {% if scrcpy_codec == 'vp9' %}selected{% endif %}>VP9</option>
+                            </select>
+                        </div>
+                        <div class="input-group" style="padding-left: 10px; justify-content: space-between;">
+                            <label>Битрейт (бит/с):</label>
+                            <input placeholder="2M" type="text" id="scrcpy_bitrate" value="{{ scrcpy_bitrate }}" style="flex: 1;">
+                        </div>
+                        <div class="input-group" style="padding-left: 10px; justify-content: space-between;">
+                            <label>Видео-буфер (мс):</label>
+                            <input placeholder="0" type="text" id="scrcpy_video_buffer" value="{{ scrcpy_video_buffer }}" style="flex: 1;">
+                        </div>
+                        <button class="btn btn-accent" style="margin-bottom: 5px;" onclick="saveRenderSettings('video')">Сохранить настройки видео</button>
+                    </div>
+                </div>
+
+                <div id="control-box">
+                    <div class="section-title">Звук</div>
+                    <div id="control-box-btn">
+                        <div class="input-group" style="padding-left: 10px; justify-content: space-between;">
+                            <label>Метод управления:</label>
+                            <div class="toggle-switch volume-mode-switch">
+                                <input type="radio" id="volume_system" name="volume_mode" value="system"
+                                    {% if volume_mode == 'system' %}checked{% endif %}>
+                                <label for="volume_system" class="toggle-label" title="Системный: кнопки громкости Android через ADB">ADB</label>
+                                <input type="radio" id="volume_program" name="volume_mode" value="program"
+                                    {% if volume_mode != 'system' %}checked{% endif %}>
+                                <label for="volume_program" class="toggle-label" title="Программный: громкость микшера Windows для scrcpy">APP</label>
+                                <span class="toggle-slider"></span>
+                            </div>
+                        </div>
+                        <div id="volumeHint" style="font-size: 11px; color: #666666; padding-left: 10px; margin-bottom: 4px;{% if volume_mode != 'program' %} display: none;{% endif %}">└ Поддерживается на Android 13+ и выше</div>
+                        <div class="btn-row volume-row" id="volumeProgramRowRender" {% if volume_mode != 'program' %}style="display: none;"{% endif %}>
+                            <input type="range" id="volumeSliderRender" class="volume-slider" min="0" max="100" step="1" value="{{ program_volume }}" style="--volume-pct: {{ program_volume }}%;">
+                            <span id="volumeValueRender" class="volume-value">{{ program_volume }}%</span>
+                        </div>
+                        <div class="input-group" style="padding-left: 10px; justify-content: space-between;">
+                            <label>Аудиокодек:</label>
+                            <select id="scrcpy_audio_codec" style="flex: 1; background-color: var(--frame-bg); color: var(--text-color); border: 1px solid var(--highlight); padding: 5px; font-size: 12px;">
+                                <option value="opus" {% if scrcpy_audio_codec == 'opus' %}selected{% endif %}>Opus (по умолч.)</option>
+                                <option value="aac" {% if scrcpy_audio_codec == 'aac' %}selected{% endif %}>AAC</option>
+                                <option value="flac" {% if scrcpy_audio_codec == 'flac' %}selected{% endif %}>FLAC</option>
+                                <option value="raw" {% if scrcpy_audio_codec == 'raw' %}selected{% endif %}>RAW (без сжатия)</option>
+                            </select>
+                        </div>
+                        <div class="input-group" style="padding-left: 10px; justify-content: space-between;">
+                            <label>Аудио-буфер (мс):</label>
+                            <input placeholder="0" type="text" id="scrcpy_audio_buffer" value="{{ scrcpy_audio_buffer }}" style="flex: 1;">
+                        </div>
+                        <button class="btn btn-accent" style="margin-bottom: 5px;" onclick="saveRenderSettings('audio')">Сохранить настройки звука</button>
+                    </div>
+                </div>
+            </div>
     </div>
         <!-- Логи действий -->
         <div class="log-containerB">
@@ -1225,6 +1348,7 @@ html, body{
         const scrcpyBitrate = document.getElementById('scrcpy_bitrate').value;
         const scrcpyVideoBuffer = document.getElementById('scrcpy_video_buffer').value;
         const scrcpyAudioBuffer = document.getElementById('scrcpy_audio_buffer').value;
+        const scrcpyAudioCodec = document.getElementById('scrcpy_audio_codec').value;
 
         if (connectionType === "wifi") {
             if (!adbIp || !adbPort || !scrcpyFps) {
@@ -1263,11 +1387,142 @@ html, body{
                 scrcpy_bitrate: scrcpyBitrate,
                 scrcpy_video_buffer: scrcpyVideoBuffer,
                 scrcpy_audio_buffer: scrcpyAudioBuffer,
+                scrcpy_audio_codec: scrcpyAudioCodec,
             }),
         });
 
         const data = await response.json();
         updateLogs(data.logs);
+    }
+
+    // Сохранение настроек рендера отдельно по разделам:
+    // 'video' — только видео, 'audio' — только звук.
+    async function saveRenderSettings(section) {
+        const payload = { action: 'save_render_settings', section };
+        if (section === 'video') {
+            payload.scrcpy_fps = document.getElementById('scrcpy_fps').value;
+            payload.scrcpy_hwdec = document.getElementById('scrcpy_hwdec').value;
+            payload.scrcpy_codec = document.getElementById('scrcpy_codec').value;
+            payload.scrcpy_bitrate = document.getElementById('scrcpy_bitrate').value;
+            payload.scrcpy_video_buffer = document.getElementById('scrcpy_video_buffer').value;
+        } else {
+            payload.scrcpy_audio_codec = document.getElementById('scrcpy_audio_codec').value;
+            payload.scrcpy_audio_buffer = document.getElementById('scrcpy_audio_buffer').value;
+            payload.volume_mode = getVolumeMode();
+        }
+
+        const response = await fetch('/action', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        });
+
+        const data = await response.json();
+        updateLogs(data.logs);
+        updateScrcpyStatus(data.scrcpy_running);
+        // Режим громкости вступает в силу после сохранения — синхронизируем
+        // переключатель и строку в «Управлении» с тем, что сохранено.
+        if (section === 'audio' && data.volume_mode) syncVolumeMode(data.volume_mode);
+    }
+
+    // Громкость: системный (кнопки ADB) / программный (микшер Windows для scrcpy)
+    function getVolumeMode() {
+        const checked = document.querySelector('input[name="volume_mode"]:checked');
+        return checked ? checked.value : 'system';
+    }
+
+    function showVolumeMode(mode) {
+        // Кнопки громкости ADB стоят в одном ряду с «Назад/Домой/Задачи»,
+        // в программном режиме они скрываются, а вместо них — ползунок.
+        const program = (mode === 'program');
+        ['volMinBtn', 'volPlusBtn'].forEach(id => {
+            const btn = document.getElementById(id);
+            if (btn) btn.style.display = program ? 'none' : '';
+        });
+        const progRow = document.getElementById('volumeProgramRow');
+        if (progRow) progRow.style.display = program ? 'flex' : 'none';
+    }
+
+    function syncVolumeMode(mode) {
+        const radio = document.getElementById(mode === 'program' ? 'volume_program' : 'volume_system');
+        if (radio) radio.checked = true;
+        const slider = document.querySelector('.volume-mode-switch .toggle-slider');
+        if (slider) {
+            slider.style.transform = (mode === 'program') ? 'translateX(100%)' : 'translateX(0%)';
+        }
+        updateVolumeHint(mode);
+        showVolumeMode(mode);
+    }
+
+    // Подсказка про Android и ползунок в «Рендере» видны только на APP.
+    function updateVolumeHint(mode) {
+        const program = (mode === 'program');
+        const hint = document.getElementById('volumeHint');
+        if (hint) hint.style.display = program ? '' : 'none';
+        const renderRow = document.getElementById('volumeProgramRowRender');
+        if (renderRow) renderRow.style.display = program ? 'flex' : 'none';
+    }
+
+    // Переключатель только фиксирует выбор: сам режим применится после
+    // «Сохранить настройки звука» (scrcpy перезапускается с --audio-source).
+    document.querySelectorAll('input[name="volume_mode"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            const slider = this.closest('.toggle-switch').querySelector('.toggle-slider');
+            if (slider) {
+                slider.style.transform = (this.value === 'program')
+                    ? 'translateX(100%)' : 'translateX(0%)';
+            }
+            updateVolumeHint(this.value);
+        });
+    });
+
+    // Ползунок громкости есть в «Управлении» и в «Рендере» — оба показывают
+    // одно значение и сохраняют его сразу.
+    const volumePairs = [
+        [document.getElementById('volumeSlider'), document.getElementById('volumeValue')],
+        [document.getElementById('volumeSliderRender'), document.getElementById('volumeValueRender')],
+    ].filter(pair => pair[0]);
+
+    if (volumePairs.length) {
+        let volumeTimer = null;
+
+        function paintVolume(value) {
+            const v = String(value);
+            volumePairs.forEach(parts => {
+                const slider = parts[0];
+                const label = parts[1];
+                slider.value = v;
+                slider.style.setProperty('--volume-pct', v + '%');
+                if (label) label.textContent = v + '%';
+            });
+        }
+
+        async function sendVolume(value) {
+            const response = await fetch('/set_volume', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ volume: parseInt(value, 10) }),
+            });
+            const data = await response.json();
+            if (typeof data.volume === 'number') paintVolume(data.volume);
+        }
+
+        volumePairs.forEach(parts => {
+            const slider = parts[0];
+            slider.addEventListener('input', () => {
+                paintVolume(slider.value);
+                clearTimeout(volumeTimer);
+                volumeTimer = setTimeout(() => sendVolume(slider.value), 120);
+            });
+            slider.addEventListener('change', () => {
+                clearTimeout(volumeTimer);
+                sendVolume(slider.value);
+            });
+        });
+
+        paintVolume(volumePairs[0][0].value);
     }
 
     // Выполнение действий
@@ -1472,7 +1727,12 @@ html, body{
     });
 
     function updateToggleSwitch() {
-        const slider = document.querySelector('.toggle-slider');
+        // Слайдер именно переключателя типа подключения (не переключателя
+        // метода громкости — их в разметке два).
+        const usbRadio = document.getElementById('connection_usb');
+        const toggle = usbRadio ? usbRadio.closest('.toggle-switch') : null;
+        const slider = toggle ? toggle.querySelector('.toggle-slider') : null;
+        if (!slider) return;
         if (document.getElementById('connection_wifi').checked) {
             slider.style.transform = 'translateX(100%)';
         } else {
@@ -1483,8 +1743,11 @@ html, body{
     document.querySelectorAll('input[name="connection_type"]').forEach(radio => {
         radio.addEventListener('change', function() {
             const isWifi = this.value === 'wifi';
-            document.querySelector('.toggle-slider').style.transform =
-                isWifi ? 'translateX(100%)' : 'translateX(0%)';
+            const toggle = this.closest('.toggle-switch');
+            const slider = toggle ? toggle.querySelector('.toggle-slider') : null;
+            if (slider) {
+                slider.style.transform = isWifi ? 'translateX(100%)' : 'translateX(0%)';
+            }
             document.querySelector('.ip-block-box').style.display =
                 isWifi ? 'flex' : 'none';
         });
